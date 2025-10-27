@@ -6,8 +6,26 @@
 #include <stdlib.h>
 #include <math.h>
 
+
+// Detect line positions from projection
+int detect_lines(const int* proj, int size, int** lines, double threshold)
+{
+    *lines = malloc(size * sizeof(int));
+    int count = 0;
+    for (int i = 1; i < size - 1; i++) {
+        if (proj[i] > threshold && proj[i - 1] <= threshold) {
+            (*lines)[count++] = i;
+        }
+    }
+    return count;
+}
+
+
 // Detect grid and return cropped image
-unsigned char* detect_grid(const char* image_path, int* grid_w, int* grid_h, const char* save_path) 
+unsigned char* detect_grid(const char* image_path, int* grid_w, int* grid_h,
+		const char* save_path,
+		int** h_lines, int* h_count,
+                int** v_lines, int* v_count)
 {
     	int width, height, channels;
     	unsigned char* img = stbi_load(image_path, &width, &height, &channels, 1);
@@ -49,23 +67,16 @@ unsigned char* detect_grid(const char* image_path, int* grid_w, int* grid_h, con
     	double v_std = sqrt((v_sq_sum / width) - (v_mean * v_mean));
 
     	// Find crop boundaries using peaks
-    	int top = -1, bottom = -1, left = -1, right = -1;
     	double h_threshold = h_mean + h_std * 1.2; // 20% above average
     	double v_threshold = v_mean + v_std * 1.5; // 50% above average
 
-    	for (int y = 0; y < height; y++) {
-        	if (h_proj[y] > h_threshold) {
-            	if (top == -1) top = y;
-            	bottom = y;
-        	}
-    	}
+	*h_count = detect_lines(h_proj, height, h_lines, h_threshold);
+	*v_count = detect_lines(v_proj, width, v_lines, v_threshold);
 
-    	for (int x = 0; x < width; x++) {
-        	if (v_proj[x] > v_threshold) {
-            		if (left == -1) left = x;
-            		right = x;
-        	}
-    	}
+	int top = (*h_count > 0) ? (*h_lines)[0] : -1;
+    	int bottom = (*h_count > 0) ? (*h_lines)[*h_count - 1] : -1;
+    	int left = (*v_count > 0) ? (*v_lines)[0] : -1;
+    	int right = (*v_count > 0) ? (*v_lines)[*v_count - 1] : -1;
 
     	if (top == -1 || bottom == -1 || left == -1 || right == -1) {
         	printf("Error: Could not detect grid.\n");
