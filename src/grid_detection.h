@@ -1,15 +1,35 @@
 #ifndef GRID_DETECTION_H
 #define GRID_DETECTION_H
 
-unsigned char* detect_grid(const char* image_path,
-	       	int* grid_w, int* grid_h,
-		const char* save_path,
-		int** h_lines, int* h_count,
-                int** v_lines, int* v_count);
+typedef struct {
+    	int x, y, w, h;
+} Rectangle;
 
-void process_grid(unsigned char* grid_img,
-	       	int grid_w, int grid_h,
-		int* h_lines, int h_count,
-		int* v_lines, int v_count);
+typedef struct {
+    	int rows, cols;
+	int count;
+    	Rectangle *rects;
+} GridCells;
+
+typedef struct {
+    	int width, height;
+    	unsigned char *data;  // 0 = black, 255 = white
+} BinaryImage;
+
+// Image I/O
+BinaryImage* load_pretreated_image(const char *filename);
+void save_binary_image(BinaryImage *img, const char *filename);
+void binary_image_free(BinaryImage *img);
+
+// Grid localization
+GridCells detect_grid_from_image(BinaryImage *binary);
+GridCells localize_cells_contours(BinaryImage *binary, int expected_size);
+
+// Cell extraction
+BinaryImage* extract_cell_content(BinaryImage *original, Rectangle cell);
+int save_all_cells_binary(BinaryImage *original, GridCells cells, const char *base_path);
+
+// Visualization
+void visualize_grid_detection(BinaryImage *original, GridCells cells, const char *output_path);
 
 #endif
