@@ -19,4 +19,8 @@ clean:
 	rm -f $(OBJ) $(TARGET)
 
 run: all
+	@echo "Cleaning old outputs..."
+	@rm -f data/images/detected_grid.png
+	@rm -f data/cells/*.png
+	@echo "Running program..."
 	./$(TARGET)
