@@ -259,6 +259,20 @@ GridCells localize_cells_contours(BinaryImage *binary, int expected_size)
 }
 
 // Extract cell content for OCR
+BinaryImage* resize_cell(BinaryImage *cell, int target_width, int target_height)
+{
+    	BinaryImage *resized = binary_image_create(target_width, target_height);
+    	// Simple nearest-neighbor resizing implementation
+    	for (int y = 0; y < target_height; y++) {
+        	for (int x = 0; x < target_width; x++) {
+            		int src_x = (x * cell->width) / target_width;
+            		int src_y = (y * cell->height) / target_height;
+            		resized->data[y * target_width + x] = *binary_pixel_at(cell, src_x, src_y);
+        	}
+    	}
+    return resized;
+}
+
 BinaryImage* extract_cell_content(BinaryImage *original, Rectangle cell)
 {
    	if (cell.w <= 0 || cell.h <= 0) return NULL;
@@ -279,8 +293,9 @@ BinaryImage* extract_cell_content(BinaryImage *original, Rectangle cell)
             		}
         	}
     	}
-    
-    	return cell_img;
+   	BinaryImage *resized = resize_cell(cell_img, 28, 28);
+	binary_image_free(cell_img);	
+    	return resized;
 }
 
 // Save binary image as PNG
