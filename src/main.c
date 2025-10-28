@@ -1,48 +1,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "grid_detection.h"
+#include "word_list_detection.h"
 
 int main() {
-    	const char *input_path = "data/images/level_1_binarized.png";
-    	const char *output_viz_path = "data/images/detected_grid.png";
-    	const char *cells_output_dir = "data/cells/cell";
-    
-    	printf("=== Word Search Grid Cell Localization ===\n");
-    	printf("Input: %s\n", input_path);
-    
-    	// Load the pre-treated binary image
-    	BinaryImage *binary = load_pretreated_image(input_path);
+	// Load image
+	BinaryImage *binary = load_pretreated_image("level_1_binarized.png");
     	if (!binary) {
-        	printf("ERROR: Failed to load input image\n");
-        	return 1;
+        	printf("Error loading image\n");
+        	return -1;
     	}
-    
-    	printf("Loaded binary image: %dx%d pixels\n", binary->width, binary->height);
-    
-    	// Localize grid cells using projection method
-    	GridCells cells = detect_grid_from_image(binary);
-    
-    	if (cells.count > 0) {
-        	printf("SUCCESS: Detected %dx%d grid with %d total cells\n", 
-               	cells.rows, cells.cols, cells.count);
-        
-        	// Save visualization
-        	visualize_grid_detection(binary, cells, output_viz_path);
-        	printf("Saved visualization: %s\n", output_viz_path);
-        
-        	// Extract and save all cells as binary images
-        	printf("Extracting cells to: %s*.png\n", cells_output_dir);
-        	int saved_count = save_all_cells_binary(binary, cells, cells_output_dir);
-        	printf("Saved %d binary cell images\n", saved_count);
-        
-        	free(cells.rects);
-    	}
-	else
-	{
-        	printf("ERROR: Failed to detect grid cells\n");
-    	}
-    
+
+	// Grid detection
+	printf("Detecting grid...\n");
+    	GridCells grid = detect_grid_from_image(binary);
+    	printf("Grid detected: %d x %d (%d cells)\n", grid.rows, grid.cols, grid.count);
+
+	// Word list detection
+	printf("Detecting word list...\n");
+    	WordList word_list = find_word_list(binary, grid);
+    	printf("Word list detected: %d words\n", word_list.count);
+
+	// Visualisation
+    	visualize_grid_detection(binary, grid, "grid_detection.png");
+
+	// Saving cells
+	save_all_cells_binary(binary, grid, "grid_cell");
+
+	// Free memory (AHAAHAHHAHAHAHAHAH)
+	free(grid.rects);
+    	word_list_free(&word_list);
     	binary_image_free(binary);
-    	printf("=== Program finished ===\n");
+
     	return 0;
 }

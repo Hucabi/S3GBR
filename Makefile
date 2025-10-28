@@ -1,26 +1,37 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c11
-SRC = src/main.c src/grid_detection.c
-OBJ = $(SRC:.c=.o)
-TARGET = grid_split
-
-INCLUDES = -Isrc
+CFLAGS = -Wall -Wextra -std=c99 -O2
 LIBS = -lm
+
+# Chemins
+SRC_DIR = src
+BUILD_DIR = build
+DATA_DIR = data
+
+# Fichiers sources
+SOURCES = $(SRC_DIR)/main.c $(SRC_DIR)/grid_detection.c $(SRC_DIR)/word_list_detection.c
+OBJECTS = $(SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+TARGET = wordsearch_solver
+
+# Créer le dossier build si nécessaire
+$(shell mkdir -p $(BUILD_DIR))
 
 all: $(TARGET)
 
-$(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET) $(LIBS)
+$(TARGET): $(OBJECTS)
+	$(CC) $(OBJECTS) -o $(TARGET) $(LIBS)
 
-%.o: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/main.o: $(SRC_DIR)/main.c $(SRC_DIR)/grid_detection.h $(SRC_DIR)/word_list_detection.h
+$(BUILD_DIR)/grid_detection.o: $(SRC_DIR)/grid_detection.c $(SRC_DIR)/grid_detection.h
+$(BUILD_DIR)/word_list_detection.o: $(SRC_DIR)/word_list_detection.c $(SRC_DIR)/word_list_detection.h $(SRC_DIR)/grid_detection.h
 
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -rf $(BUILD_DIR) $(TARGET) grid_detection.png grid_cell_*.png
 
-run: all
-	@echo "Cleaning old outputs..."
-	@rm -f data/images/detected_grid.png
-	@rm -f data/cells/*.png
-	@echo "Running program..."
-	./$(TARGET)
+# Créer les dossiers de données
+init:
+	mkdir -p $(DATA_DIR)/cells $(DATA_DIR)/images
+
+.PHONY: all clean init

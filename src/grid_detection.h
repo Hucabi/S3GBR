@@ -16,20 +16,28 @@ typedef struct {
     	unsigned char *data;  // 0 = black, 255 = white
 } BinaryImage;
 
-// Image I/O
-BinaryImage* load_pretreated_image(const char *filename);
-void save_binary_image(BinaryImage *img, const char *filename);
+// create/destroy binary images
+BinaryImage* binary_image_create(int width, int height);
 void binary_image_free(BinaryImage *img);
 
-// Grid localization
+// load and save binary images
+BinaryImage* load_pretreated_image(const char *filename);
+void save_binary_image(BinaryImage *img, const char *filename);
+
+// grid detection
+void compute_projections(BinaryImage *img, int **h_proj, int **v_proj);
+int* find_peaks(int *projection, int length, int *peak_count, double threshold_ratio);
+int* group_peaks(int *peaks, int peak_count, int max_gap, int *group_count);
 GridCells detect_grid_from_image(BinaryImage *binary);
+
 GridCells localize_cells_contours(BinaryImage *binary, int expected_size);
 
-// Cell extraction
+// extract and resize cells
 BinaryImage* extract_cell_content(BinaryImage *original, Rectangle cell);
-int save_all_cells_binary(BinaryImage *original, GridCells cells, const char *base_path);
+BinaryImage* resize_cell(BinaryImage *cell, int target_width, int target_height);
 
-// Visualization
+// visualize save image
 void visualize_grid_detection(BinaryImage *original, GridCells cells, const char *output_path);
+int save_all_cells_binary(BinaryImage *original, GridCells cells, const char *base_path);
 
 #endif
