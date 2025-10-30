@@ -15,5 +15,6 @@ void visualize_word_list(BinaryImage *original, WordList word_list, const char *
 unsigned char* binary_pixel_at(BinaryImage *img, int x, int y);
 void save_word_list_cells(BinaryImage *img, WordList word_list, const char *base_path);
 void save_word_letters(BinaryImage *img, WordList word_list, const char *base_path);
+void word_list_free(WordList *word_list);
 
 #endif

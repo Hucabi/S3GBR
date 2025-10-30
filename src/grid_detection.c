@@ -3,9 +3,6 @@
 #include <string.h>
 #include <math.h>
 #include "grid_detection.h"
-
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image.h"
 #include "stb_image_write.h"
 
@@ -385,4 +382,14 @@ int save_all_cells_binary(BinaryImage *original, GridCells cells, const char *ba
     	}
 
     	return saved_count;
+}
+
+void grid_cells_free(GridCells *cells) {
+    if (cells && cells->rects) {
+        free(cells->rects);
+        cells->rects = NULL;
+        cells->count = 0;
+        cells->rows = 0;
+        cells->cols = 0;
+    }
 }
