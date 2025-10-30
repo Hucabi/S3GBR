@@ -11,5 +11,9 @@ typedef struct {
 } WordList;
 
 WordList find_word_list(BinaryImage *img, GridCells grid);
+void visualize_word_list(BinaryImage *original, WordList word_list, const char *output_path);
+unsigned char* binary_pixel_at(BinaryImage *img, int x, int y);
+void save_word_list_cells(BinaryImage *img, WordList word_list, const char *base_path);
+void save_word_letters(BinaryImage *img, WordList word_list, const char *base_path);
 
 #endif

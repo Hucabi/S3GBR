@@ -377,7 +377,7 @@ int save_all_cells_binary(BinaryImage *original, GridCells cells, const char *ba
         	BinaryImage *cell_content = extract_cell_content(original, cells.rects[i]);
         	if (cell_content) {
             		char filename[256];
-            		snprintf(filename, sizeof(filename), "%s_%03d.png", base_path, i);
+            		snprintf(filename, sizeof(filename), "%s/cell_%03d.png", base_path, i);
             		save_binary_image(cell_content, filename);
             		binary_image_free(cell_content);
             		saved_count++;
