@@ -18,6 +18,9 @@ Image LoadImage(const char* path) {
     return img;
 }
 
+
+
+
 void FreeImage(Image img) {
     stbi_image_free(img.data);
 }

@@ -3,6 +3,8 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
+
+//turns the pixel to gray
 void rgb_to_gray(unsigned char* img, unsigned char* gray, int width, int height, int channels) {
     for (int i = 0; i < width * height; i++) {
         int idx = i * channels;
@@ -13,10 +15,19 @@ void rgb_to_gray(unsigned char* img, unsigned char* gray, int width, int height,
     }
 }
 
+
+
+
+
 void compute_histogram(unsigned char* gray, int width, int height, int hist[256]) {
     for (int i = 0; i < 256; i++) hist[i] = 0;
     for (int i = 0; i < width * height; i++) hist[gray[i]]++;
 }
+
+
+
+
+//using otsu_threshold to see if we turn the pixel to black or white
 
 int otsu_threshold(unsigned char* gray, int width, int height) {
     int hist[256];
@@ -51,6 +62,7 @@ int otsu_threshold(unsigned char* gray, int width, int height) {
     return threshold;
 }
 
+//binarizes an image
 void binarize(unsigned char* gray, unsigned char* bw, int width, int height) {
     int threshold = otsu_threshold(gray, width, height);
 
