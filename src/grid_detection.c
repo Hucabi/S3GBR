@@ -32,7 +32,8 @@ unsigned char* binary_pixel_at(BinaryImage *img, int x, int y) {
 BinaryImage* load_pretreated_image(const char *filename)
 {
     	int width, height, channels;
-    	unsigned char *data = stbi_load(filename, &width, &height, &channels, 0);
+    	unsigned char *data = stbi_load(filename, &width, &height,
+			&channels, 0);
     
     	if (!data) {
         	printf("Error loading image: %s\n", filename);
@@ -45,7 +46,8 @@ BinaryImage* load_pretreated_image(const char *filename)
     	for (int i = 0; i < width * height; i++) {
         	// Simple threshold - adjust based on your pre-treatment
         	int pixel_value = (channels == 1) ? data[i] : 
-                	(0.299 * data[i*channels] + 0.587 * data[i*channels+1] + 0.114 * data[i*channels+2]);
+                	(0.299 * data[i*channels] + 0.587 * data[i*channels+1]
+			 + 0.114 * data[i*channels+2]);
         	binary->data[i] = (pixel_value > 128) ? 255 : 0;
     	}
     
@@ -79,7 +81,8 @@ void compute_projections(BinaryImage *img, int **h_proj, int **v_proj)
 }
 
 // Find peaks in projection profiles (grid lines)
-int* find_peaks(int *projection, int length, int *peak_count, double threshold_ratio)
+int* find_peaks(int *projection, int length, int *peak_count,
+		double threshold_ratio)
 {
     	// Calculate threshold
     	int max_val = 0;
@@ -127,7 +130,8 @@ int* group_peaks(int *peaks, int peak_count, int max_gap, int *group_count)
 		else
 		{
             		// End current group, start new one
-            		groups[group_idx++] = (current_start + current_end) / 2; // Use midpoint
+            		groups[group_idx++] =
+				(current_start + current_end) / 2; // midpoint
             		current_start = peaks[i];
             		current_end = peaks[i];
         	}
@@ -150,17 +154,19 @@ GridCells detect_grid_from_image(BinaryImage *binary) {
     
     	// Find peaks (grid lines)
     	int h_peak_count, v_peak_count;
-    	int *h_peaks = find_peaks(h_proj, binary->height, &h_peak_count, 0.44); // (>=0.4.2) detect too much lines
+    	int *h_peaks = find_peaks(h_proj, binary->height, &h_peak_count, 0.44);
     	int *v_peaks = find_peaks(v_proj, binary->width, &v_peak_count, 0.44);
     
-    	printf("Detected %d horizontal, %d vertical line candidates\n", h_peak_count, v_peak_count);
+    	printf("Detected %d horizontal, %d vertical line candidates\n",
+			h_peak_count, v_peak_count);
     
     	// Group adjacent peaks
     	int h_group_count, v_group_count;
     	int *h_groups = group_peaks(h_peaks, h_peak_count, 5, &h_group_count);
     	int *v_groups = group_peaks(v_peaks, v_peak_count, 5, &v_group_count);
     
-    	printf("Grouped to %d horizontal, %d vertical grid lines\n", h_group_count, v_group_count);
+    	printf("Grouped to %d horizontal, %d vertical grid lines\n",
+			h_group_count, v_group_count);
     
     	// Calculate grid dimensions: lines-1 = cells
     	cells.rows = h_group_count - 1;
@@ -168,16 +174,18 @@ GridCells detect_grid_from_image(BinaryImage *binary) {
     	cells.count = cells.rows * cells.cols;
     
     	if (cells.count <= 0) {
-        	printf("ERROR: Invalid grid dimensions %dx%d\n", cells.rows, cells.cols);
+        	printf("ERROR: Invalid grid dimensions %dx%d\n",
+				cells.rows, cells.cols);
         	goto cleanup;
     	}
     
-    	printf("Detected grid size: %d rows x %d columns\n", cells.rows, cells.cols);
+    	printf("Detected grid size: %d rows x %d columns\n",
+			cells.rows, cells.cols);
     
     	// Verify minimum size from project specs
     	if (cells.rows < 5 || cells.cols < 5) {
-        	printf("WARNING: Grid size %dx%d is below minimum 5x5 requirement\n", 
-               		cells.rows, cells.cols);
+        	printf("WARNING: Grid size %dx%d",cells.rows, cells.cols);
+		printf("is below minimum 5x5 requirement\n");	
     	}
     
     	// Create cells from grid lines
@@ -228,7 +236,8 @@ GridCells localize_cells_contours(BinaryImage *binary, int expected_size)
     	int approx_cell_width = binary->width / expected_size;
     	int approx_cell_height = binary->height / expected_size;
     
-    	printf("Estimated cell size: %dx%d\n", approx_cell_width, approx_cell_height);
+    	printf("Estimated cell size: %dx%d\n",
+			approx_cell_width, approx_cell_height);
     
     	// Create grid based on estimated dimensions
     	int cell_idx = 0;
@@ -236,7 +245,7 @@ GridCells localize_cells_contours(BinaryImage *binary, int expected_size)
         	for (int col = 0; col < expected_size; col++) {
             		int x = col * approx_cell_width + 2;  // Padding
             		int y = row * approx_cell_height + 2;
-            		int w = approx_cell_width - 4;        // Reduce to avoid borders
+            		int w = approx_cell_width - 4; // Avoid borders
             		int h = approx_cell_height - 4;
             
             		// Ensure we stay within image bounds
@@ -255,16 +264,19 @@ GridCells localize_cells_contours(BinaryImage *binary, int expected_size)
     	return cells;
 }
 
-// Extract cell content for OCR
-BinaryImage* resize_cell(BinaryImage *cell, int target_width, int target_height)
+// Extract cell content for Tim OCR
+BinaryImage* resize_cell(BinaryImage *cell,
+		int target_width, int target_height)
 {
-    	BinaryImage *resized = binary_image_create(target_width, target_height);
+    	BinaryImage *resized =
+		binary_image_create(target_width, target_height);
     	// Simple nearest-neighbor resizing implementation
     	for (int y = 0; y < target_height; y++) {
         	for (int x = 0; x < target_width; x++) {
             		int src_x = (x * cell->width) / target_width;
             		int src_y = (y * cell->height) / target_height;
-            		resized->data[y * target_width + x] = *binary_pixel_at(cell, src_x, src_y);
+            		resized->data[y * target_width + x] =
+				*binary_pixel_at(cell, src_x, src_y);
         	}
     	}
     return resized;
@@ -281,12 +293,15 @@ BinaryImage* extract_cell_content(BinaryImage *original, Rectangle cell)
             		int orig_x = cell.x + x;
             		int orig_y = cell.y + y;
             
-            		if (orig_x < original->width && orig_y < original->height) {
-                		cell_img->data[y * cell.w + x] = *binary_pixel_at(original, orig_x, orig_y);
+            		if (orig_x < original->width && orig_y
+					< original->height) {
+                		cell_img->data[y * cell.w + x] =
+					*binary_pixel_at(original,
+						orig_x, orig_y);
             		}
 			else
 			{
-                		cell_img->data[y * cell.w + x] = 255; // White padding
+                		cell_img->data[y * cell.w + x] = 255; // White
             		}
         	}
     	}
@@ -313,10 +328,12 @@ void save_binary_image(BinaryImage *img, const char *filename)
 }
 
 // Visualize detected cells on original image
-void visualize_grid_detection(BinaryImage *original, GridCells cells, const char *output_path)
+void visualize_grid_detection(BinaryImage *original, GridCells cells,
+		const char *output_path)
 {
 	// Create RGB version for visualization
-    	unsigned char *rgb_data = malloc(original->width * original->height * 3);
+    	unsigned char *rgb_data = malloc(original->width *
+			original->height * 3);
     
     	// Convert binary to grayscale RGB
     	for (int i = 0; i < original->width * original->height; i++) {
@@ -362,19 +379,23 @@ void visualize_grid_detection(BinaryImage *original, GridCells cells, const char
             }
         }
     }
-    stbi_write_png(output_path, original->width, original->height, 3, rgb_data, 0);
+    stbi_write_png(output_path, original->width, original->height,
+		    3, rgb_data, 0);
     free(rgb_data);
 }
 
 // Save all cells as binary PNG files
-int save_all_cells_binary(BinaryImage *original, GridCells cells, const char *base_path) {
+int save_all_cells_binary(BinaryImage *original, GridCells cells,
+		const char *base_path) {
     	int saved_count = 0;
 
     	for (int i = 0; i < cells.count; i++) {
-        	BinaryImage *cell_content = extract_cell_content(original, cells.rects[i]);
+        	BinaryImage *cell_content = extract_cell_content(original,
+				cells.rects[i]);
         	if (cell_content) {
             		char filename[256];
-            		snprintf(filename, sizeof(filename), "%s/cell_%03d.png", base_path, i);
+            		snprintf(filename, sizeof(filename),
+					"%s/cell_%03d.png", base_path, i);
             		save_binary_image(cell_content, filename);
             		binary_image_free(cell_content);
             		saved_count++;

@@ -160,11 +160,13 @@ int main() {
     	printf("Grid detected: %d x %d (%d cells)\n", grid.rows, grid.cols, grid.count);
     
     	// Save grid visualization
-    	visualize_grid_detection(binary_img, grid, "data/images/grid_detection.png");
+    	visualize_grid_detection(binary_img, grid,
+			"data/images/grid_detection.png");
     	printf("Grid visualization saved as data/images/grid_detection.png\n");
     
     	// Save grid cells
-    	int saved_cells = save_all_cells_binary(binary_img, grid, "data/grid/cells");
+    	int saved_cells = save_all_cells_binary(binary_img, grid,
+			"data/grid/cells");
     	printf("Saved %d grid cells to data/grid/cells/\n", saved_cells);
     
     	// Step 5: Word list detection
@@ -173,7 +175,8 @@ int main() {
     	printf("Word list detected: %d words\n", word_list.count);
     
     	// Save word list visualization
-    	visualize_word_list(binary_img, word_list, "data/images/word_list_detection.png");
+    	visualize_word_list(binary_img, word_list,
+			"data/images/word_list_detection.png");
     
     	// Save word list cells
     	save_word_list_cells(binary_img, word_list, "data");
