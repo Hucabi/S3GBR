@@ -17,3 +17,10 @@
 #           - lr     : (double) learning rate (magnitude of the weight update)
 #           - seed   : (unsigned int) representing the seed of the random generator
 # By default, epochs = 10000, lr = 0.5, seed = 42
+#
+# To test the solver :
+#   - Go to the solver folder
+#   - Compile the program using the command 'make all'
+#   - Execute the program with the './solver {grid} {word}' with :
+#       - grid : the name of the file representing the word grid
+#       - word : the word to be found in the grid
