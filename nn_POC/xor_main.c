@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include "nn.h"
 
 static void print_pred(Network *net, double a, double b, double target) 
@@ -18,7 +17,7 @@ int main(int argc, char **argv)
     // paramètres modifiables par arguments
     int epochs = 10000;
     double lr = 0.5;
-    unsigned seed = (unsigned)time(NULL);
+    unsigned seed = (unsigned) 42;
 
     if (argc >= 2) epochs = atoi(argv[1]);         // ex: ./xor_nn 20000
     if (argc >= 3) lr = atof(argv[2]);             // ex: ./xor_nn 20000 0.3
