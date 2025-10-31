@@ -5,7 +5,8 @@
 
 
 //turns the pixel to gray
-void rgb_to_gray(unsigned char* img, unsigned char* gray, int width, int height, int channels) {
+void rgb_to_gray(unsigned char* img, unsigned char* gray, int width, int height, 
+		int channels) {
     for (int i = 0; i < width * height; i++) {
         int idx = i * channels;
         unsigned char r = img[idx + 0];
@@ -19,7 +20,8 @@ void rgb_to_gray(unsigned char* img, unsigned char* gray, int width, int height,
 
 
 
-void compute_histogram(unsigned char* gray, int width, int height, int hist[256]) {
+void compute_histogram(unsigned char* gray, int width, 
+		int height, int hist[256]) {
     for (int i = 0; i < 256; i++) hist[i] = 0;
     for (int i = 0; i < width * height; i++) hist[gray[i]]++;
 }
