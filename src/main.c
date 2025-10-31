@@ -24,7 +24,9 @@ void create_directories() {
 }
 
 // Convert preprocessing output to BinaryImage format
-BinaryImage* convert_to_binary_image(unsigned char* bw_visual, int width, int height) {
+BinaryImage* convert_to_binary_image(unsigned char* bw_visual,
+		int width,
+		int height) {
 	BinaryImage* binary = binary_image_create(width, height);
     
     	// Convert from 0/255 to 0/1 format (invert if needed)
@@ -38,22 +40,32 @@ BinaryImage* convert_to_binary_image(unsigned char* bw_visual, int width, int he
 }
 
 // Rotation functions (from your friend's code)
-void rotate_90(unsigned char* src, unsigned char* dest, int width, int height) {
+void rotate_90(unsigned char* src,
+		unsigned char* dest,
+		int width,
+		int height) {
     	for (int y = 0; y < height; y++)
         	for (int x = 0; x < width; x++)
-            		dest[x * height + (height - 1 - y)] = src[y * width + x];
+            		dest[x * height + (height - 1 - y)]
+				= src[y * width + x];
 }
 
-void rotate_180(unsigned char* src, unsigned char* dest, int width, int height) {
+void rotate_180(unsigned char* src,
+		unsigned char* dest,
+		int width, int height) {
     	for (int y = 0; y < height; y++)
         	for (int x = 0; x < width; x++)
-            		dest[(height - 1 - y) * width + (width - 1 - x)] = src[y * width + x];
+            		dest[(height - 1 - y) * width + (width - 1 - x)]
+				= src[y * width + x];
 }
 
-void rotate_270(unsigned char* src, unsigned char* dest, int width, int height) {
+void rotate_270(unsigned char* src,
+		unsigned char* dest,
+		int width, int height) {
     	for (int y = 0; y < height; y++)
         	for (int x = 0; x < width; x++)
-            	dest[(width - 1 - x) * height + y] = src[y * width + x];
+            	dest[(width - 1 - x) * height + y]
+			= src[y * width + x];
 }
 
 int main(int argc, char *argv[]) {
@@ -76,7 +88,8 @@ int main(int argc, char *argv[]) {
     	printf("Loading image: %s\n", input_file);
     
     	int width, height, channels;
-    	unsigned char* img = stbi_load(input_file, &width, &height, &channels, 0);
+    	unsigned char* img = stbi_load(input_file,
+			&width, &height, &channels, 0);
     	if (!img) {
         	printf("Error: Could not load image %s\n", input_file);
         	return 1;
@@ -114,7 +127,8 @@ int main(int argc, char *argv[]) {
     	}
     
     	// Save binarized image
-    	stbi_write_png("data/images/level_1_binarized.png", width, height, 1, bw_visual, width);
+    	stbi_write_png("data/images/level_1_binarized.png",
+			width, height, 1, bw_visual, width);
     	printf("Saved binarized image as data/images/level_1_binarized.png\n");
     
     	// Step 2: Optional rotation
@@ -128,22 +142,25 @@ int main(int argc, char *argv[]) {
     	if (angle != 0) {
         	rotation_buffer = malloc(width * height);
 		if (!rotation_buffer) {
-            		printf("Error: Memory allocation for rotation failed\n");
+            		printf("Error: Malloc for rotation failed\n");
             		goto cleanup;
         	}
         	switch(angle) {
             		case 90:
-                		rotate_90(bw_visual, rotation_buffer, width, height);
+                		rotate_90(bw_visual, rotation_buffer,
+						width, height);
                 		new_width = height; 
                 		new_height = width;
                 		rotated = rotation_buffer;
                 		break;
             		case 180:
-                		rotate_180(bw_visual, rotation_buffer, width, height);
+                		rotate_180(bw_visual, rotation_buffer,
+						width, height);
                 		rotated = rotation_buffer;
                 		break;
             		case 270:
-                		rotate_270(bw_visual, rotation_buffer, width, height);
+                		rotate_270(bw_visual, rotation_buffer,
+						width, height);
                 		new_width = height; 
                 		new_height = width;
                 		rotated = rotation_buffer;
@@ -154,8 +171,10 @@ int main(int argc, char *argv[]) {
         	}
         
         	if (rotation_buffer) {
-            		stbi_write_png("data/images/rotated.png", new_width, new_height, 1, rotated, new_width);
-            		printf("Rotated image saved as data/images/rotated.png\n");
+            		stbi_write_png("data/images/rotated.png",
+					new_width, new_height, 1,
+					rotated, new_width);
+            		printf("Rotated image in data/images/rotated.png\n");
         	}
     	}
     
@@ -166,7 +185,8 @@ int main(int argc, char *argv[]) {
     	// Step 4: Grid detection
     	printf("Detecting grid...\n");
     	grid = detect_grid_from_image(binary_img);
-    	printf("Grid detected: %d x %d (%d cells)\n", grid.rows, grid.cols, grid.count);
+    	printf("Grid detected: %d x %d (%d cells)\n",
+			grid.rows, grid.cols, grid.count);
     
     	// Save grid visualization
     	visualize_grid_detection(binary_img, grid,
