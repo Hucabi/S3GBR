@@ -21,17 +21,19 @@ int count_lines(FILE* file)
 	return counter;
 }
 
-
 void solver(char* file, char* word)
 {
 	int len = 0; // len of word
 	
+	for(int i = 0; word[i] != 0; i++) len++;
+
+	char* w = malloc(sizeof(char)*len+1);
+	w = strcpy(w, word);
 	// uppercase
-	for(int i = 0; word[i] == 0; i++)
+	for(int i = 0; i < len; i++)
 	{
-		len++;
 		if(word[i] >= 'a' && word[i] <= 'z')
-			word[i] = (char)(word[i] - 32);
+			w[i] = (char)(word[i] - 32);
 	}
 
 
@@ -50,23 +52,19 @@ void solver(char* file, char* word)
 
 	if(fseek(fp, 0, SEEK_SET) < 0) printf("fseek error");
 
-	char** grid = malloc(sizeof(char)*sizeof(char)*dim[0]);
-	size_t* n = malloc(sizeof(size_t));
-	*n = 120;
-	char* line[dim[0]];
-	dim[1] = getline(line, n , fp);
-	grid[0] = malloc(sizeof(char)*dim[1]);
-	grid[0] = strcpy(grid[0], *line);
-	//getline(line, n, fp);
-	//grid[1] = strcpy(grid[1], *line);
+	size_t n = 120;
+	char* line = NULL;
+	dim[1] = getline(&line, &n , fp);
+	char** grid = malloc(sizeof(char)*dim[0]*dim[1]);
+	grid[0] = malloc(sizeof(char)*dim[1]+1);
+	grid[0] = strcpy(grid[0], line);
 	for(int i = 1; i < dim[0]; i++)
 	{
-		getline(line, n, fp);
-		grid[i] = malloc(sizeof(char)*dim[1]);
-		grid[i] = strcpy(grid[i], *line);
+		getline(&line, &n, fp);
+		grid[i] = malloc(sizeof(char)*dim[1]+1);
+		grid[i] = strcpy(grid[i], line);
 	}
-	//free(n);
-	fclose(fp);	
+	fclose(fp);
 	
 	int coords[4] = {0};
 	for(int i = 0; i < 4; i++) coords[i] = 0;
@@ -77,36 +75,36 @@ void solver(char* file, char* word)
 	short b = 0;
 	while(!b && coords[0] < dim[0] && coords[1] < dim[1])
 	{
-		if(grid[coords[0]][coords[1]] == word[0])
+		if(grid[coords[0]][coords[1]] == w[0])
 		{
 			// [U,D,L,R]
 			short dir[4] = {0,0,0,0};
-			if(coords[0]<len) dir[0] = 1;
-			if(dim[0]<len+coords[0]) dir[1] = 1;
-			if(coords[1]<len) dir[2] = 1;
-			if(dim[1]<len+coords[1]) dir[3] = 1;
+			if(coords[0]+1>=len) dir[0] = 1;
+			if(dim[0]>=len+coords[0]) dir[1] = 1;
+			if(coords[1]+1>=len) dir[2] = 1;
+			if(dim[1]>=len+coords[1]) dir[3] = 1;
 			if(dir[0]) // up
 			{
 				if(dir[2])
-					b=search(4,coords,dim,grid,word,len);
+					b=search(4,coords,dim,grid,w,len);
 				if(!b && dir[3])
-					b=search(5,coords,dim,grid,word,len);
+					b=search(5,coords,dim,grid,w,len);
 				if(!b)
-					b=search(0,coords,dim,grid,word,len);
+					b=search(0,coords,dim,grid,w,len);
 			}
 			if(!b && dir[1]) // down
 			{
 				if(dir[2])
-					b=search(6,coords,dim,grid,word,len);
+					b=search(6,coords,dim,grid,w,len);
 				if(!b && dir[3])
-					b=search(7,coords,dim,grid,word,len);
+					b=search(7,coords,dim,grid,w,len);
 				if(!b)
-					b=search(1,coords,dim,grid,word,len);
+					b=search(1,coords,dim,grid,w,len);
 			}
 			if(!b && dir[2]) // left
-				b=search(2,coords,dim,grid,word,len);
+				b=search(2,coords,dim,grid,w,len);
 			if(!b && dir[3]) // right
-				b=search(3,coords,dim,grid,word,len);
+				b=search(3,coords,dim,grid,w,len);
 			
 			// SIGNATURE SEARCH
 		}
@@ -124,7 +122,14 @@ void solver(char* file, char* word)
 	}
 	if(!b) printf("Not found\n");
 	else printf("(%i,%i)(%i,%i)\n",
-			coords[0], coords[1], coords[2], coords[3]);
+			coords[1], coords[0], coords[3], coords[2]);
+	
+	// free
+	free(line);
+	free(w);
+	for(int i = 0; i < dim[0]; i++)
+		free(grid[i]);
+	free(grid);
 }
 
 
@@ -238,7 +243,12 @@ short search(int dir, int* coords, int* dim, char** grid, char* word, int len)
 
 int main(int argc, char* argv[])
 {
-//	solver(argv[1], argv[2]);
-	solver("grid", "horizontal");	
+	if(argc != 3)
+	{
+		printf("incorrect input");
+		return 0;
+	}
+
+	solver(argv[1], argv[2]);
 	return 0;
 }
