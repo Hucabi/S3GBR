@@ -1,4 +1,3 @@
-# Makefile
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99 -O2
 SRCDIR = src
@@ -19,5 +18,8 @@ all: $(TARGET)
 
 clean:
 	rm -rf $(BUILDDIR) $(TARGET)
-
+	rm -rf data/grid/cells/* data/word_letters/* data/wordlist/cells/*
+	rm -f data/images/word_list_detection.png
+	rm -f data/images/grid_detection.png
+	rm -f data/images/rotated.png
 .PHONY: all clean

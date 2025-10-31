@@ -56,14 +56,23 @@ void rotate_270(unsigned char* src, unsigned char* dest, int width, int height) 
             	dest[(width - 1 - x) * height + y] = src[y * width + x];
 }
 
-int main() {
-    	printf("Word Search Solver - Starting...\n");
-    
+int main(int argc, char *argv[]) {
+    	if (argc < 2) {
+		printf("ERROR: not enough arguments\n");
+        	printf("Usage: %s <input_image>\n", argv[0]);
+        	printf("Example: %s data/input/wordsearch.jpg\n", argv[0]);
+        	return 1;
+    	}	
+
+	printf("Word Search Solver - Starting...\n");
+
     	// Create output directories
     	create_directories();
     
     	// Step 1: Load and preprocess image
-    	const char* input_file = "data/input/level_1_image_1.jpg";
+	char input_file[256];
+	snprintf(input_file, sizeof(input_file), "data/input/%s", argv[1]);
+	
     	printf("Loading image: %s\n", input_file);
     
     	int width, height, channels;
