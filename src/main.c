@@ -39,6 +39,42 @@ BinaryImage* convert_to_binary_image(unsigned char* bw_visual,
     	return binary;
 }
 
+
+double row_variance(unsigned char* row, int width)
+	{
+		double sum = 0.0;
+		double sum_sq = 0.0;
+
+		for (int i = 0; i < width; i++)
+		{
+			double v = row[i];
+			sum +=v;
+			sum_sq += v*v;
+		}	
+		double mean = sum / width;
+		double mean_sq = sum_sq / width;
+
+		return mean_sq - mean*mean;
+	}
+
+
+double compute_variance_score(unsigned char* gray, int width, int height)
+{
+	double score = 0.0;
+	for (int y = 0; y < height; y++)
+	{
+		unsigned char *row = &gray[y * width];
+		score += row_variance(row,width);
+
+	}
+	return score;
+
+}
+
+
+
+
+
 // Rotation functions (from your friend's code)
 void rotate_90(unsigned char* src,
 		unsigned char* dest,
