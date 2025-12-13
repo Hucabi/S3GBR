@@ -1,4 +1,4 @@
-// localization.h - CORRECTED VERSION
+// localization.h - CORRECTED VERSION (no center_letter in public API)
 #ifndef LOCALIZATION_H
 #define LOCALIZATION_H
 
@@ -8,7 +8,8 @@
 #include <math.h>
 
 // Constants for output format
-#define CELL_SIZE 32  // 32x32 pixels
+#define CELL_SIZE 32     // 32x32 pixels for grid cells
+#define WORDLIST_SIZE 28 // 28x28 pixels for wordlist letters
 #define GRID_OUTPUT_DIR "../data/grid/cells"
 #define WORDLIST_OUTPUT_DIR "../data/wordlist/cells"
 
@@ -51,15 +52,18 @@ BoundingBox find_grid_by_projection(gdImagePtr img);
 BoundingBox find_grid_by_text_clustering(gdImagePtr img);
 void flood_fill(gdImagePtr img, int x, int y, BoundingBox* bbox, int** visited);
 
-// ========== LETTER EXTRACTION FUNCTIONS ==========
+// ========== GRID LETTER EXTRACTION FUNCTIONS ==========
 LetterData** extract_grid_letters(gdImagePtr img, BoundingBox grid, 
                                  int* num_rows, int* num_cols);
+
+// ========== WORD LIST DETECTION FUNCTIONS ==========
+BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid);
+
+// ========== WORDLIST LETTER EXTRACTION FUNCTIONS ==========
 LetterData** extract_wordlist_letters(gdImagePtr img, BoundingBox wordlist, 
                                      int* num_words, int** letters_per_word);
-gdImagePtr center_letter(gdImagePtr cell_img);
-
-// ========== WORD LIST FUNCTIONS ==========
-BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid);
+void save_wordlist_letters(LetterData** letters, int num_words, 
+                          int* letters_per_word, const char* output_dir);
 
 // ========== IMAGE PROCESSING FUNCTIONS ==========
 gdImagePtr resize_and_binarize(gdImagePtr src, int target_size);

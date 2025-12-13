@@ -1,47 +1,42 @@
-# localization/Makefile - UPDATED
 CC = gcc
-CFLAGS = -Wall -Wextra -g -I.
-LDFLAGS = -lgd -lpng -ljpeg -lm
+CFLAGS = -Wall -Wextra -std=c99 -O2
+LIBS = -lgd -lm
 
 # Source files
-SRCS = projection.c grid_detection.c letter_extraction.c wordlist_detection.c
-OBJS = $(SRCS:.c=.o)
+SOURCES = projection.c \
+          grid_detection.c \
+          letter_extraction.c \
+          wordlist_detection.c \
+          wordlist_extraction.c \
+          main_with_wordlist.c
 
-# Test programs
-TESTS = tests/test_working_extraction tests/simple_extract tests/test_grid
+# Object files
+OBJECTS = $(SOURCES:.c=.o)
 
-# Main library
-liblocalization.a: $(OBJS)
-	ar rcs $@ $(OBJS)
+# Executable
+TARGET = wordsearch_extractor
 
-# Pattern rule for object files
+.PHONY: all clean
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+
 %.o: %.c localization.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Test programs
-tests/test_working_extraction: tests/test_working_extraction.c
-	$(CC) $(CFLAGS) -o $@ tests/test_working_extraction.c $(LDFLAGS)
-
-tests/simple_extract: tests/simple_extract.c liblocalization.a
-	$(CC) $(CFLAGS) -o $@ tests/simple_extract.c -L. -llocalization $(LDFLAGS)
-
-tests/test_grid: tests/test_grid.c liblocalization.a
-	$(CC) $(CFLAGS) -o $@ tests/test_grid.c -L. -llocalization $(LDFLAGS)
-
-# Main program
-localizer_simple: localizer_simple.c liblocalization.a
-	$(CC) $(CFLAGS) -o $@ localizer_simple.c -L. -llocalization $(LDFLAGS)
-
-# Build all
-all: liblocalization.a localizer_simple $(TESTS)
-
-# Clean everything (including data directories)
 clean:
-	rm -f *.o liblocalization.a
-	rm -f $(TESTS) localizer_simple
-	rm -f debug_grid.png debug_localization.png localization_debug.png
-	rm -f ../data/grid/cells/*.jpg ../data/grid/cells/*.png
-	rm -f ../data/wordlist/cells/*.jpg ../data/wordlist/cells/*.png
-	rm -f ../data/wordlist/*.png
+	rm -f $(OBJECTS) $(TARGET)
+	rm -f localization_debug.png
+	rm -rf ../data/grid/cells/*.jpg
+	rm -rf ../data/wordlist/cells/*.jpg
 
-.PHONY: all clean
+# Create necessary directories
+setup:
+	mkdir -p ../data/grid/cells
+	mkdir -p ../data/wordlist/cells
+
+# Run test
+test: $(TARGET) setup
+	./$(TARGET) test_image.png

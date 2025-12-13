@@ -1,107 +1,126 @@
-// letter_extraction.c - CORRECTED VERSION
+// letter_extraction.c - ROBUST VERSION with better border detection
 #include "localization.h"
 #include <string.h>
 #include <stdio.h>
 
-static void find_letter_bounding_box(gdImagePtr cell_img, 
-                                     int* min_x, int* max_x, 
-                                     int* min_y, int* max_y) {
-    int width = gdImageSX(cell_img);
-    int height = gdImageSY(cell_img);
+// Center a letter in its cell (remove excess whitespace)
+static gdImagePtr center_letter(gdImagePtr cell_img) {
+    int width = cell_img->sx;
+    int height = cell_img->sy;
     
-    // Initialize with extreme values
-    *min_x = width;
-    *max_x = 0;
-    *min_y = height;
-    *max_y = 0;
+    // STEP 1: Clean bounding box detection with noise filtering
+    int min_x = width, max_x = 0, min_y = height, max_y = 0;
+    int pixel_count = 0;
     
-    int found_black = 0;
-    
-    // Scan the entire cell for black pixels (index 0)
+    // Find tight bounding box of black pixels
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int color = gdImageGetPixel(cell_img, x, y);
-            if (color == 0) {  // BLACK pixel
-                found_black = 1;
-                if (x < *min_x) *min_x = x;
-                if (x > *max_x) *max_x = x;
-                if (y < *min_y) *min_y = y;
-                if (y > *max_y) *max_y = y;
+            if (gdImageGetPixel(cell_img, x, y) == 0) {
+                pixel_count++;
+                if (x < min_x) min_x = x;
+                if (x > max_x) max_x = x;
+                if (y < min_y) min_y = y;
+                if (y > max_y) max_y = y;
             }
         }
     }
     
-    // If no black pixels found, set to center of cell
-    if (!found_black) {
-        *min_x = width / 2 - 1;
-        *max_x = width / 2 + 1;
-        *min_y = height / 2 - 1;
-        *max_y = height / 2 + 1;
-    }
-}
-
-// Center a letter in its cell (remove excess whitespace)
-gdImagePtr center_letter(gdImagePtr cell_img) {
-    int width = gdImageSX(cell_img);
-    int height = gdImageSY(cell_img);
-    
-    // Find bounding box using the helper function
-    int min_x, max_x, min_y, max_y;
-    find_letter_bounding_box(cell_img, &min_x, &max_x, &min_y, &max_y);
-    
-    // Add padding
-    int padding = 1;
-    min_x = (min_x - padding > 0) ? min_x - padding : 0;
-    min_y = (min_y - padding > 0) ? min_y - padding : 0;
-    max_x = (max_x + padding < width) ? max_x + padding : width - 1;
-    max_y = (max_y + padding < height) ? max_y + padding : height - 1;
-    
-    int letter_width = max_x - min_x + 1;
-    int letter_height = max_y - min_y + 1;
-    
-    // Create centered image (32x32)
-    int target_size = 32;
-    gdImagePtr centered = gdImageCreate(target_size, target_size);
-    
-    // Fill with white
-    if (gdImageTrueColor(centered)) {
+    // If no black pixels or too few (noise), return white image
+    if (pixel_count < 5) {
+        gdImagePtr centered = gdImageCreate(32, 32);
         int white = gdImageColorAllocate(centered, 255, 255, 255);
-        gdImageFill(centered, 0, 0, white);
-    } else {
-        for (int y = 0; y < target_size; y++) {
-            for (int x = 0; x < target_size; x++) {
-                gdImageSetPixel(centered, x, y, 255);
-            }
-        }
+        gdImageFilledRectangle(centered, 0, 0, 31, 31, white);
+        return centered;
     }
     
-    // Calculate scaling
-    float scale_x = (float)target_size / letter_width;
-    float scale_y = (float)target_size / letter_height;
-    float scale = (scale_x < scale_y) ? scale_x : scale_y; // Keep aspect ratio
+    // Add small padding (10% of dimension)
+    int bbox_width = max_x - min_x + 1;
+    int bbox_height = max_y - min_y + 1;
+    int padding_x = bbox_width / 10;
+    int padding_y = bbox_height / 10;
     
-    int scaled_width = (int)(letter_width * scale);
-    int scaled_height = (int)(letter_height * scale);
+    min_x = (min_x > padding_x) ? min_x - padding_x : 0;
+    max_x = (max_x + padding_x < width) ? max_x + padding_x : width - 1;
+    min_y = (min_y > padding_y) ? min_y - padding_y : 0;
+    max_y = (max_y + padding_y < height) ? max_y + padding_y : height - 1;
     
-    int offset_x = (target_size - scaled_width) / 2;
-    int offset_y = (target_size - scaled_height) / 2;
+    bbox_width = max_x - min_x + 1;
+    bbox_height = max_y - min_y + 1;
     
-    // Copy and scale the letter
+    // STEP 2: Calculate scaling while preserving aspect ratio
+    float scale_x = 32.0f / bbox_width;
+    float scale_y = 32.0f / bbox_height;
+    float scale = (scale_x < scale_y) ? scale_x : scale_y; // Use smaller scale
+    
+    int scaled_width = (int)(bbox_width * scale);
+    int scaled_height = (int)(bbox_height * scale);
+    
+    // STEP 3: Create centered image with proper positioning
+    gdImagePtr centered = gdImageCreate(32, 32);
+    int white = gdImageColorAllocate(centered, 255, 255, 255);
+    int black = gdImageColorAllocate(centered, 0, 0, 0);
+    gdImageFilledRectangle(centered, 0, 0, 31, 31, white);
+    
+    // Calculate centering offsets
+    int offset_x = (32 - scaled_width) / 2;
+    int offset_y = (32 - scaled_height) / 2;
+    
+    // STEP 4: Scale and copy with simple nearest-neighbor
     for (int y = 0; y < scaled_height; y++) {
         for (int x = 0; x < scaled_width; x++) {
             int src_x = min_x + (int)(x / scale);
             int src_y = min_y + (int)(y / scale);
             
-            if (src_x >= 0 && src_x < width && src_y >= 0 && src_y < height) {
-                int color = gdImageGetPixel(cell_img, src_x, src_y);
-                if (color == 0) { // Only copy black pixels
-                    gdImageSetPixel(centered, offset_x + x, offset_y + y, 0);
+            if (src_x < width && src_y < height) {
+                int pixel = gdImageGetPixel(cell_img, src_x, src_y);
+                if (pixel == 0) { // Black pixel
+                    gdImageSetPixel(centered, offset_x + x, offset_y + y, black);
                 }
             }
         }
     }
     
     return centered;
+}
+
+// Helper: Find continuous border regions
+static int* find_border_lines(int* projection, int length, int threshold, 
+                              int min_gap, int* num_borders) {
+    int* borders = (int*)malloc(length * sizeof(int));
+    int count = 0;
+    int in_border = 0;
+    int border_start = 0;
+    
+    for (int i = 0; i < length; i++) {
+        if (projection[i] > threshold) {
+            if (!in_border) {
+                border_start = i;
+                in_border = 1;
+            }
+        } else {
+            if (in_border) {
+                // End of border region - store the middle
+                int border_middle = (border_start + i - 1) / 2;
+                
+                // Only add if far enough from previous border
+                if (count == 0 || border_middle - borders[count - 1] > min_gap) {
+                    borders[count++] = border_middle;
+                }
+                in_border = 0;
+            }
+        }
+    }
+    
+    // Handle border at end
+    if (in_border) {
+        int border_middle = (border_start + length - 1) / 2;
+        if (count == 0 || border_middle - borders[count - 1] > min_gap) {
+            borders[count++] = border_middle;
+        }
+    }
+    
+    *num_borders = count;
+    return borders;
 }
 
 // New function for resizing and binarizing to target size
@@ -150,7 +169,7 @@ gdImagePtr resize_and_binarize(gdImagePtr src, int target_size) {
     return dst;
 }
 
-// Extract letters from grid with automatic row/col detection
+// Extract letters from GRID with IMPROVED border detection
 LetterData** extract_grid_letters(gdImagePtr img, BoundingBox grid, 
                                  int* num_rows, int* num_cols) {
     printf("Extracting letters from grid (%dx%d)...\n", grid.width, grid.height);
@@ -159,47 +178,39 @@ LetterData** extract_grid_letters(gdImagePtr img, BoundingBox grid,
     int* h_proj = compute_horizontal_projection_within(img, grid);
     int* v_proj = compute_vertical_projection_within(img, grid);
     
-    // 2. Find borders (high projection values = cell separators)
-    int h_border_threshold = grid.width * 0.5; // 50% of width
-    int v_border_threshold = grid.height * 0.5; // 50% of height
+    // 2. Adaptive thresholding for border detection
+    // Borders should be VERY dark (high projection values)
+    int h_border_threshold = grid.width * 0.7;  // 70% of width (increased from 50%)
+    int v_border_threshold = grid.height * 0.7; // 70% of height
     
-    // Count borders to determine grid size
-    int border_count_h = 0;
-    for (int y = 0; y < grid.height; y++) {
-        if (h_proj[y] > h_border_threshold) {
-            border_count_h++;
-        }
-    }
+    // Estimate cell size to set minimum gap between borders
+    int estimated_cell_height = grid.height / 15; // Assume 5-20 rows
+    int estimated_cell_width = grid.width / 15;   // Assume 5-20 cols
     
-    int border_count_v = 0;
-    for (int x = 0; x < grid.width; x++) {
-        if (v_proj[x] > v_border_threshold) {
-            border_count_v++;
-        }
-    }
+    // Find continuous border lines
+    int border_count_h, border_count_v;
+    int* row_borders = find_border_lines(h_proj, grid.height, h_border_threshold, 
+                                        estimated_cell_height / 2, &border_count_h);
+    int* col_borders = find_border_lines(v_proj, grid.width, v_border_threshold, 
+                                        estimated_cell_width / 2, &border_count_v);
     
     // Grid size = borders - 1
     *num_rows = border_count_h - 1;
     *num_cols = border_count_v - 1;
     
-    printf("Detected %d rows x %d columns grid\n", *num_rows, *num_cols);
+    printf("Detected %d row borders, %d col borders\n", border_count_h, border_count_v);
+    printf("Grid size: %d rows x %d columns\n", *num_rows, *num_cols);
     
-    // 3. Find exact border positions
-    int* row_borders = (int*)malloc(border_count_h * sizeof(int));
-    int* col_borders = (int*)malloc(border_count_v * sizeof(int));
-    
-    int idx = 0;
-    for (int y = 0; y < grid.height; y++) {
-        if (h_proj[y] > h_border_threshold) {
-            row_borders[idx++] = y;
-        }
-    }
-    
-    idx = 0;
-    for (int x = 0; x < grid.width; x++) {
-        if (v_proj[x] > v_border_threshold) {
-            col_borders[idx++] = x;
-        }
+    // Sanity check: grid should be reasonable size
+    if (*num_rows < 3 || *num_rows > 30 || *num_cols < 3 || *num_cols > 30) {
+        printf("ERROR: Unrealistic grid size detected! Aborting.\n");
+        free(h_proj);
+        free(v_proj);
+        free(row_borders);
+        free(col_borders);
+        *num_rows = 0;
+        *num_cols = 0;
+        return NULL;
     }
     
     // 4. Allocate 2D array for letters
@@ -210,15 +221,21 @@ LetterData** extract_grid_letters(gdImagePtr img, BoundingBox grid,
     
     // 5. Extract each cell
     for (int row = 0; row < *num_rows; row++) {
-        int cell_top = grid.y + row_borders[row] + 1;
-        int cell_bottom = grid.y + row_borders[row + 1] - 1;
+        int cell_top = grid.y + row_borders[row] + 2;
+        int cell_bottom = grid.y + row_borders[row + 1] - 2;
         
         for (int col = 0; col < *num_cols; col++) {
-            int cell_left = grid.x + col_borders[col] + 1;
-            int cell_right = grid.x + col_borders[col + 1] - 1;
+            int cell_left = grid.x + col_borders[col] + 2;
+            int cell_right = grid.x + col_borders[col + 1] - 2;
             
             int cell_width = cell_right - cell_left + 1;
             int cell_height = cell_bottom - cell_top + 1;
+            
+            // Safety check
+            if (cell_width <= 0 || cell_height <= 0) {
+                printf("WARNING: Invalid cell at [%d,%d]\n", row, col);
+                continue;
+            }
             
             // Extract raw cell image
             gdImagePtr cell_img = gdImageCreate(cell_width, cell_height);
@@ -254,25 +271,6 @@ LetterData** extract_grid_letters(gdImagePtr img, BoundingBox grid,
     printf("Extracted %d letters total\n", (*num_rows) * (*num_cols));
     
     return letters;
-}
-
-// Extract letters from word list - STUB FOR NOW
-LetterData** extract_wordlist_letters(gdImagePtr img, BoundingBox wordlist, 
-                                     int* num_words, int** letters_per_word) {
-    // Mark parameters as unused to avoid warnings
-    (void)img;
-    (void)wordlist;
-    
-    // This is simpler: words are horizontal, separated by whitespace
-    printf("Extracting letters from word list...\n");
-    
-    // For now, return empty structure
-    *num_words = 0;
-    *letters_per_word = NULL;
-    
-    printf("Word list extraction not implemented yet\n");
-    
-    return NULL;
 }
 
 // Helper function to save a cell as JPEG

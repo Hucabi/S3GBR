@@ -14,7 +14,7 @@ BoundingBox find_grid_by_projection(gdImagePtr img) {
     
     // 2. Find grid boundaries using thresholding
     // For Level 1: Borders create continuous lines
-    int border_threshold = width * 0.7; // Border covers at least 70% of width
+    int border_threshold = width * 0.5; // Border covers at least 50% of width
     
     // Find top border
     for (int y = 0; y < height; y++) {
