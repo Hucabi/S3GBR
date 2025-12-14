@@ -1,0 +1,30 @@
+# Wordsearch Localization & Extraction
+
+This program analyzes a word search image, detects the grid and wordlist, 
+and extracts every individual letter into separate image files for the OCR step
+
+## Directory Structure
+
+* Source Code: `localization/` (You are here)
+* Input Images: `localization/test_images/` (Put your puzzle images here)
+* Output Data: `../data/` (Results appear here)
+
+---
+
+## How to Run 
+
+Follow these steps exactly for each new image you want to process.
+
+### 1. Prepare your Image
+Place your binqriwed word search image (PNG format recommended) 
+inside the `test_images/` folder.
+
+### 2. Clean Previous Run (IMPORTANT)
+This deletes the old extracted letters from the `data/` folder 
+so you don't mix up different puzzles.
+
+### 3. Compile (type make)
+
+### 4. Execute
+./wordsearch_extractor test_images/image_name.png
+with image_name.png the binarized image you want to extract letter from

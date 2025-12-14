@@ -4,7 +4,7 @@
 #include <limits.h>
 #include <math.h>
 
-// --- Helper: Save 28x28 Centered (CNN Format) ---
+// [FIX] Added 'static' to prevent multiple definition errors during linking
 static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char* filename) {
     if (w < 2 || h < 2) return;
     gdImagePtr dest = gdImageCreateTrueColor(28, 28);
@@ -21,7 +21,6 @@ static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char*
         new_w = (int)((float)w / h * target); 
     }
     
-    // Safety check
     if (new_w < 1) new_w = 1; 
     if (new_h < 1) new_h = 1;
 
@@ -35,14 +34,32 @@ static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char*
 }
 
 // --- RECURSIVE BLOB SPLITTER ---
-// Tuned Threshold: 1.45 protects 'M' (ratio ~1.1) but catches 'LA' (ratio ~1.5)
-void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, char* base_dir, int* idx) {
+// [FIX] Added 'static' to prevent linker errors
+static void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, char* base_dir, int* idx) {
     float aspect = (float)w / h;
     
-    if (aspect > 1.45) {
+    // --- DUAL-THRESHOLD STRATEGY ---
+    // 1. Wide blobs (> 1.2): Standard split.
+    // 2. Square-ish blobs (0.90 - 1.2): Strict split (only if connection is very thin).
+    //    This catches fused "LA" (leg connection) and "AT" (bar connection) 
+    //    while ignoring "M" or "W" (which have thick centers).
+
+    int do_split = 0;
+    int split_x = -1;
+
+    // Search Range: Widen to 15%-85% to catch asymmetric pairs like "LA" (L is narrow)
+    int search_start = w * 0.15;
+    int search_end = w * 0.85;
+    
+    // Safety clamps
+    if (search_start < 1) search_start = 1;
+    if (search_end > w - 2) search_end = w - 2;
+
+    if (aspect > 0.90) { // Look at anything wider than a very narrow letter
         int* proj = (int*)calloc(w, sizeof(int));
         int black = gdImageColorResolve(strip, 0, 0, 0);
         
+        // Compute Vertical Projection
         for (int ix = 0; ix < w; ix++) {
             for (int iy = 0; iy < h; iy++) {
                 if (gdImageGetPixel(strip, x + ix, y + iy) == black) {
@@ -51,17 +68,8 @@ void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, char* b
             }
         }
 
-        // Search for valley in the middle 50%
-        int search_start = w * 0.25;
-        int search_end = w * 0.75;
-
-        // Safety clamps to prevent infinite recursion
-        if (search_start < 1) search_start = 1;
-        if (search_end > w - 2) search_end = w - 2;
-
+        // Find the "thinnest" point (valley)
         int min_ink = INT_MAX;
-        int split_x = -1;
-
         if (search_start <= search_end) {
             for (int ix = search_start; ix <= search_end; ix++) {
                 if (proj[ix] < min_ink) {
@@ -70,33 +78,46 @@ void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, char* b
                 }
             }
         }
-        
         free(proj);
 
-        // Only split if we found a valid cut point
         if (split_x != -1) {
-            process_and_save_blob(strip, x, y, split_x, h, base_dir, idx);
-            process_and_save_blob(strip, x + split_x, y, w - split_x, h, base_dir, idx);
-            return;
+            float ink_ratio = (float)min_ink / h;
+            
+            // CASE A: Wide Blob (Standard)
+            // Allow cuts even if connection is messy (up to 50% ink)
+            if (aspect > 1.2 && ink_ratio < 0.50) {
+                do_split = 1;
+            }
+            // CASE B: Condensed/Fused Pair (e.g. "LA", "AT")
+            // Strict: Only cut if connection is < 22% of height (single stroke thickness)
+            else if (aspect > 0.90 && ink_ratio < 0.22) {
+                do_split = 1;
+            }
         }
     }
 
-    // Base Case: Save
-    if(w > 2 && h > 5) {
-        char fname[512];
-        sprintf(fname, "%s/letter_%d.png", base_dir, (*idx)++);
-        save_for_cnn(strip, x, y, w, h, fname);
+    if (do_split) {
+        process_and_save_blob(strip, x, y, split_x, h, base_dir, idx);
+        process_and_save_blob(strip, x + split_x, y, w - split_x, h, base_dir, idx);
+    } else {
+        // Base Case: Save Letter
+        if(w > 2 && h > 5) {
+            char fname[512];
+            sprintf(fname, "%s/letter_%d.png", base_dir, (*idx)++);
+            save_for_cnn(strip, x, y, w, h, fname);
+        }
     }
 }
 
 typedef struct { int x, y, w, h; } Blob;
 
-int compare_x(const void* a, const void* b) {
+// [FIX] Added 'static'
+static int compare_x(const void* a, const void* b) {
     return ((Blob*)a)->x - ((Blob*)b)->x;
 }
 
 void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
-    printf("[Extraction] Row-Based Wordlist Extraction (Level 2 Fix)...\n");
+    printf("[Extraction] Row-Based Wordlist Extraction (Final Polish)...\n");
     mkdir("../data/wordlist/cells", 0777);
 
     gdImagePtr list_img = gdImageCreate(box.width, box.height);
@@ -108,7 +129,6 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
     int word_count = 0;
 
     // --- STEP 1: HORIZONTAL PROJECTION (FIND ROWS) ---
-    // We scan the full width to find lines of text.
     int* h_proj = calloc(h, sizeof(int));
     for(int y=0; y<h; y++) {
         for(int x=0; x<w; x++) {
@@ -118,7 +138,7 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
     
     int in_row = 0;
     int wy = 0;
-    int noise_floor = 2; // Low threshold to catch dots/thin lines
+    int noise_floor = 2; 
 
     for(int y=0; y<h; y++) {
         int is_ink = (h_proj[y] > noise_floor);
@@ -126,23 +146,22 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
 
         if(is_ink) { 
             if(!in_row) { wy = y; in_row = 1; }
-            if (is_last && in_row) { /* fallthrough to process last row */ } 
+            if (is_last && in_row) { /* fallthrough */ } 
             else { continue; }
         } 
         
         if(in_row && (!is_ink || is_last)) {
-            // Found a row (Line of text)
+            // Found a row
             int wh = (is_last && is_ink) ? (y - wy + 1) : (y - wy);
-            in_row = 0; // Reset flag
+            in_row = 0;
 
-            // Skip noise lines
             if (wh < 8) continue;
 
             // --- STEP 2: EXTRACT BLOBS FROM THIS ROW ---
             gdImagePtr strip = gdImageCreate(w, wh);
             gdImageCopy(strip, list_img, 0, 0, 0, wy, w, wh);
             
-            // Connected Component Analysis (Flood Fill)
+            // Flood Fill
             int* visited = calloc(w * wh, sizeof(int));
             Blob blobs[200];
             int b_count = 0;
@@ -152,7 +171,7 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
                     if(!visited[by*w+bx] && gdImageGetPixel(strip, bx, by)==black) {
                         int min_x=bx, max_x=bx, min_y=by, max_y=by;
                         
-                        // Iterative Flood Fill
+                        // Iterative Stack Flood Fill
                         int* stack = malloc(w*wh*2*sizeof(int));
                         int top=0;
                         stack[top++] = bx; stack[top++] = by;
@@ -185,7 +204,7 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
             }
             free(visited);
 
-            // Merge Vertical Blobs (Dots i/j)
+            // Merge Vertical Blobs (e.g. dots on i/j)
             for(int i=0; i<b_count; i++) {
                 if(blobs[i].w == 0) continue; 
                 for(int j=i+1; j<b_count; j++) {
@@ -205,8 +224,7 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
 
             qsort(blobs, b_count, sizeof(Blob), compare_x);
 
-            // --- STEP 3: SAVE BLOBS (FIXED: One Word Per Row) ---
-            // Removed the "Gap > 20px" check because it was splitting single words like "RUS T"
+            // --- STEP 3: SAVE (1 ROW = 1 WORD) ---
             char w_dir[256];
             sprintf(w_dir, "../data/wordlist/cells/word_%d", word_count++);
             mkdir(w_dir, 0777);
