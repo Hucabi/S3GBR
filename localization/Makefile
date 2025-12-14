@@ -16,7 +16,7 @@ OBJECTS = $(SOURCES:.c=.o)
 # Executable
 TARGET = wordsearch_extractor
 
-.PHONY: all clean
+.PHONY: all clean setup test
 
 all: $(TARGET)
 
@@ -27,10 +27,12 @@ $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
+	# Remove build artifacts
 	rm -f $(OBJECTS) $(TARGET)
 	rm -f localization_debug.png
-	rm -rf ../data/grid/cells/*.jpg
-	rm -rf ../data/wordlist/cells/*.jpg
+	# Remove all files in the data directories (PNGs, JPGs, etc.)
+	rm -rf ../data/grid/cells/*
+	rm -rf ../data/wordlist/cells/*
 
 # Create necessary directories
 setup:

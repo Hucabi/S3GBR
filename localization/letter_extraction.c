@@ -2,47 +2,38 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-// --- Helper: Standardize to 28x28 (MNIST style) ---
-static void save_28x28_normalized(gdImagePtr src, int x, int y, int w, int h, const char* filename) {
-    // 1. Create 28x28 Canvas
+// --- Helper: Save 28x28 Centered ---
+static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char* filename) {
+    if (w < 2 || h < 2) return;
     gdImagePtr dest = gdImageCreateTrueColor(28, 28);
     int white = gdImageColorAllocate(dest, 255, 255, 255);
     gdImageFilledRectangle(dest, 0, 0, 27, 27, white);
 
-    // 2. Calculate Scaling (Fit to 20x20 box inside 28x28)
-    int target_dim = 20;
+    int target = 20;
     int new_w, new_h;
-    
-    if (w > h) {
-        new_w = target_dim;
-        new_h = (int)((float)h / w * target_dim);
-    } else {
-        new_h = target_dim;
-        new_w = (int)((float)w / h * target_dim);
+    if (w > h) { 
+        new_w = target; 
+        new_h = (int)((float)h / w * target); 
+    } else { 
+        new_h = target; 
+        new_w = (int)((float)w / h * target); 
     }
     
-    // Safety check to prevent 0 dimensions
-    if (new_w < 1) new_w = 1;
+    // Fixed indentation
+    if (new_w < 1) new_w = 1; 
     if (new_h < 1) new_h = 1;
 
-    // 3. Center it
     int dest_x = (28 - new_w) / 2;
     int dest_y = (28 - new_h) / 2;
-
-    // 4. Copy and Resize
     gdImageCopyResampled(dest, src, dest_x, dest_y, x, y, new_w, new_h, w, h);
-
-    // 5. Save
+    
     FILE* out = fopen(filename, "wb");
-    if (out) {
-        gdImagePng(dest, out);
-        fclose(out);
-    }
+    if (out) { gdImagePng(dest, out); fclose(out); }
     gdImageDestroy(dest);
 }
 
-// --- Helper: Clean lines for analysis ---
-static gdImagePtr create_clean_grid_copy(gdImagePtr src) {
+// --- Helper: Line Removal ---
+static gdImagePtr remove_grid_lines(gdImagePtr src) {
     int w = gdImageSX(src);
     int h = gdImageSY(src);
     gdImagePtr clean = gdImageCreate(w, h);
@@ -50,12 +41,13 @@ static gdImagePtr create_clean_grid_copy(gdImagePtr src) {
     int white = gdImageColorResolve(clean, 255, 255, 255);
     int black = gdImageColorResolve(clean, 0, 0, 0);
 
+    // Aggressive line removal (> 20% of dimension)
     for (int y = 0; y < h; y++) {
         int run = 0;
         for (int x = 0; x < w; x++) {
             if (gdImageGetPixel(clean, x, y) == black) run++;
             else run = 0;
-            if (run > w * 0.5) { gdImageLine(clean, x-run, y, w, y, white); break; }
+            if (run > w * 0.2) { gdImageLine(clean, x-run, y, w, y, white); break; }
         }
     }
     for (int x = 0; x < w; x++) {
@@ -63,109 +55,124 @@ static gdImagePtr create_clean_grid_copy(gdImagePtr src) {
         for (int y = 0; y < h; y++) {
             if (gdImageGetPixel(clean, x, y) == black) run++;
             else run = 0;
-            if (run > h * 0.5) { gdImageLine(clean, x, y-run, x, h, white); break; }
+            if (run > h * 0.2) { gdImageLine(clean, x, y-run, x, h, white); break; }
         }
     }
     return clean;
 }
 
-// --- Extraction Logic ---
+// --- Struct for sorting blobs ---
+typedef struct {
+    int x, y, w, h;
+} Blob;
+
+// Comparator for sorting blobs (Row by Row, then Left to Right)
+int compare_blobs(const void* a, const void* b) {
+    Blob* blobA = (Blob*)a;
+    Blob* blobB = (Blob*)b;
+    
+    // Determine if they are on the "same row" (within 20px Y-difference)
+    int y_diff = abs(blobA->y - blobB->y);
+    if (y_diff > 20) {
+        return blobA->y - blobB->y; // Sort by Y
+    } else {
+        return blobA->x - blobB->x; // Same row, sort by X
+    }
+}
+
+// --- Flood Fill Component Finder ---
+void find_blob(gdImagePtr img, int x, int y, int* visited, int w, int h, Blob* b) {
+    // Standard iterative flood fill to avoid stack overflow
+    int* stack_x = malloc(w * h * sizeof(int));
+    int* stack_y = malloc(w * h * sizeof(int));
+    int top = 0;
+    
+    stack_x[top] = x; stack_y[top] = y; top++;
+    visited[y * w + x] = 1;
+    
+    int min_x = x, max_x = x, min_y = y, max_y = y;
+    int black = gdImageColorResolve(img, 0, 0, 0);
+
+    while(top > 0) {
+        top--;
+        int cx = stack_x[top]; 
+        int cy = stack_y[top];
+        
+        if (cx < min_x) min_x = cx;
+        if (cx > max_x) max_x = cx;
+        if (cy < min_y) min_y = cy;
+        if (cy > max_y) max_y = cy;
+        
+        int dx[] = {1, -1, 0, 0};
+        int dy[] = {0, 0, 1, -1};
+        
+        for(int i=0; i<4; i++) {
+            int nx = cx + dx[i];
+            int ny = cy + dy[i];
+            
+            if(nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                if(!visited[ny * w + nx] && gdImageGetPixel(img, nx, ny) == black) {
+                    visited[ny * w + nx] = 1;
+                    stack_x[top] = nx; stack_y[top] = ny; top++;
+                }
+            }
+        }
+    }
+    
+    b->x = min_x;
+    b->y = min_y;
+    b->w = max_x - min_x + 1;
+    b->h = max_y - min_y + 1;
+    
+    free(stack_x);
+    free(stack_y);
+}
+
 void extract_grid_letters(gdImagePtr img, BoundingBox grid_box) {
-    printf("[Extraction] Analyzing Grid Structure...\n");
+    printf("[Extraction] Component-Based Grid Extraction...\n");
+    mkdir("../data/grid/cells", 0777);
 
     gdImagePtr grid_img = gdImageCreate(grid_box.width, grid_box.height);
     gdImageCopy(grid_img, img, 0, 0, grid_box.x, grid_box.y, grid_box.width, grid_box.height);
-
-    gdImagePtr clean_img = create_clean_grid_copy(grid_img);
-    int w = gdImageSX(clean_img);
-    int h = gdImageSY(clean_img);
-    int black = gdImageColorResolve(grid_img, 0, 0, 0);
-
-    // Horizontal Projection
-    int* h_proj = (int*)calloc(h, sizeof(int));
-    for (int y = 0; y < h; y++) 
-        for (int x = 0; x < w; x++) 
-            if (gdImageGetPixel(clean_img, x, y) == black) h_proj[y]++;
-
-    int* row_cuts = malloc(sizeof(int) * h);
-    int num_rows = 0;
-    int in_gap = 1;
-    row_cuts[num_rows++] = 0;
-    int gap_thresh = 5; 
     
-    for (int y = 0; y < h; y++) {
-        if (h_proj[y] <= gap_thresh) { 
-            if (!in_gap) in_gap = 1;
-        } else { 
-            if (in_gap) {
-                if (y > row_cuts[num_rows-1] + 5) row_cuts[num_rows++] = y - 2; 
-                in_gap = 0;
-            }
-        }
-    }
-    row_cuts[num_rows++] = h; 
+    // 1. Remove Lines -> Letters become Islands
+    gdImagePtr clean = remove_grid_lines(grid_img);
+    int w = gdImageSX(clean);
+    int h = gdImageSY(clean);
+    int black = gdImageColorResolve(clean, 0, 0, 0);
 
-    // Vertical Projection
-    int* v_proj = (int*)calloc(w, sizeof(int));
-    for (int x = 0; x < w; x++) 
-        for (int y = 0; y < h; y++) 
-            if (gdImageGetPixel(clean_img, x, y) == black) v_proj[x]++;
+    // 2. Find All Islands (Blobs)
+    int* visited = calloc(w * h, sizeof(int));
+    Blob blobs[1000]; // Max expected letters
+    int blob_count = 0;
 
-    int* col_cuts = malloc(sizeof(int) * w);
-    int num_cols = 0;
-    in_gap = 1;
-    col_cuts[num_cols++] = 0;
-
-    for (int x = 0; x < w; x++) {
-        if (v_proj[x] <= gap_thresh) { 
-            if (!in_gap) in_gap = 1;
-        } else {
-            if (in_gap) {
-                if (x > col_cuts[num_cols-1] + 5) col_cuts[num_cols++] = x - 2; 
-                in_gap = 0;
-            }
-        }
-    }
-    col_cuts[num_cols++] = w;
-
-    printf("  > Detected %d rows, %d col separators\n", num_rows-1, num_cols-1);
-
-    // Extract Cells
-    mkdir("../data/grid/cells", 0777);
-    int cell_count = 0;
-
-    for (int r = 1; r < num_rows; r++) {
-        for (int c = 1; c < num_cols; c++) {
-            int y1 = row_cuts[r-1];
-            int y2 = row_cuts[r];
-            int x1 = col_cuts[c-1];
-            int x2 = col_cuts[c];
-            
-            int cell_w = x2 - x1;
-            int cell_h = y2 - y1;
-            
-            int ink = 0;
-            for(int cx=0; cx<cell_w; cx++)
-                for(int cy=0; cy<cell_h; cy++)
-                    if(gdImageGetPixel(grid_img, x1+cx, y1+cy) == black) ink++;
-
-            if (cell_w > 5 && cell_h > 5 && ink > 10) {
-                char filename[64];
-                sprintf(filename, "../data/grid/cells/cell_%d_%d.png", r-1, c-1);
+    for(int y=0; y<h; y++) {
+        for(int x=0; x<w; x++) {
+            if(!visited[y*w + x] && gdImageGetPixel(clean, x, y) == black) {
+                Blob b;
+                find_blob(clean, x, y, visited, w, h, &b);
                 
-                // USE NEW 28x28 FUNCTION
-                save_28x28_normalized(grid_img, x1, y1, cell_w, cell_h, filename);
-                cell_count++;
+                // Filter Noise
+                if (b.w > 5 && b.h > 5 && b.w < w/5 && b.h < h/5) {
+                    if (blob_count < 1000) blobs[blob_count++] = b;
+                }
             }
         }
     }
 
-    printf("✓ Saved %d grid letters to ../data/grid/cells/\n", cell_count);
+    // 3. Sort Blobs to reconstruct grid order
+    qsort(blobs, blob_count, sizeof(Blob), compare_blobs);
+    
+    printf("  > Found %d distinct letter blobs.\n", blob_count);
 
-    free(h_proj);
-    free(v_proj);
-    free(row_cuts);
-    free(col_cuts);
-    gdImageDestroy(clean_img);
+    // 4. Save
+    for(int i=0; i<blob_count; i++) {
+        char fname[64];
+        sprintf(fname, "../data/grid/cells/cell_%d.png", i);
+        save_for_cnn(clean, blobs[i].x, blobs[i].y, blobs[i].w, blobs[i].h, fname);
+    }
+    
+    free(visited);
+    gdImageDestroy(clean);
     gdImageDestroy(grid_img);
 }

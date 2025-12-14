@@ -1,179 +1,228 @@
-#include "localization.h"
+﻿#include "localization.h"
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <limits.h>
+#include <math.h>
 
-// --- Helper: Save 28x28 Centered (From your provided code) ---
-void save_letter_28x28(gdImagePtr img, int x, int y, int w, int h, const char* filename) {
-    // Filter tiny noise
+// --- Helper: Save 28x28 Centered (CNN Format) ---
+static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char* filename) {
     if (w < 2 || h < 2) return;
-
-    // 1. Create 28x28 Canvas (White Background)
     gdImagePtr dest = gdImageCreateTrueColor(28, 28);
     int white = gdImageColorAllocate(dest, 255, 255, 255);
     gdImageFilledRectangle(dest, 0, 0, 27, 27, white);
 
-    // 2. Calculate Scaling (Fit to 20x20 box inside 28x28)
-    int target_size = 20;
+    int target = 20;
     int new_w, new_h;
-    
-    if (w > h) {
-        new_w = target_size;
-        new_h = (int)((float)h / w * target_size);
-    } else {
-        new_h = target_size;
-        new_w = (int)((float)w / h * target_size);
+    if (w > h) { 
+        new_w = target; 
+        new_h = (int)((float)h / w * target); 
+    } else { 
+        new_h = target; 
+        new_w = (int)((float)w / h * target); 
     }
     
-    if (new_w < 1) new_w = 1;
+    // Safety check
+    if (new_w < 1) new_w = 1; 
     if (new_h < 1) new_h = 1;
 
-    // 3. Center it
     int dest_x = (28 - new_w) / 2;
     int dest_y = (28 - new_h) / 2;
-
-    // 4. Resample
-    gdImageCopyResampled(dest, img, dest_x, dest_y, x, y, new_w, new_h, w, h);
+    gdImageCopyResampled(dest, src, dest_x, dest_y, x, y, new_w, new_h, w, h);
     
-    // 5. Save
     FILE* out = fopen(filename, "wb");
-    if (out) {
-        gdImagePng(dest, out);
-        fclose(out);
-    }
+    if (out) { gdImagePng(dest, out); fclose(out); }
     gdImageDestroy(dest);
 }
 
-// --- Main Extraction ---
-void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
-    printf("[Extraction] Extracting Wordlist Letters...\n");
+// --- RECURSIVE BLOB SPLITTER ---
+// Tuned Threshold: 1.45 protects 'M' (ratio ~1.1) but catches 'LA' (ratio ~1.5)
+void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, char* base_dir, int* idx) {
+    float aspect = (float)w / h;
     
-    // Create base directory
+    if (aspect > 1.45) {
+        int* proj = (int*)calloc(w, sizeof(int));
+        int black = gdImageColorResolve(strip, 0, 0, 0);
+        
+        for (int ix = 0; ix < w; ix++) {
+            for (int iy = 0; iy < h; iy++) {
+                if (gdImageGetPixel(strip, x + ix, y + iy) == black) {
+                    proj[ix]++;
+                }
+            }
+        }
+
+        // Search for valley in the middle 50%
+        int search_start = w * 0.25;
+        int search_end = w * 0.75;
+
+        // Safety clamps to prevent infinite recursion
+        if (search_start < 1) search_start = 1;
+        if (search_end > w - 2) search_end = w - 2;
+
+        int min_ink = INT_MAX;
+        int split_x = -1;
+
+        if (search_start <= search_end) {
+            for (int ix = search_start; ix <= search_end; ix++) {
+                if (proj[ix] < min_ink) {
+                    min_ink = proj[ix];
+                    split_x = ix;
+                }
+            }
+        }
+        
+        free(proj);
+
+        // Only split if we found a valid cut point
+        if (split_x != -1) {
+            process_and_save_blob(strip, x, y, split_x, h, base_dir, idx);
+            process_and_save_blob(strip, x + split_x, y, w - split_x, h, base_dir, idx);
+            return;
+        }
+    }
+
+    // Base Case: Save
+    if(w > 2 && h > 5) {
+        char fname[512];
+        sprintf(fname, "%s/letter_%d.png", base_dir, (*idx)++);
+        save_for_cnn(strip, x, y, w, h, fname);
+    }
+}
+
+typedef struct { int x, y, w, h; } Blob;
+
+int compare_x(const void* a, const void* b) {
+    return ((Blob*)a)->x - ((Blob*)b)->x;
+}
+
+void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
+    printf("[Extraction] Row-Based Wordlist Extraction (Level 2 Fix)...\n");
     mkdir("../data/wordlist/cells", 0777);
 
-    // Crop to the Wordlist Region
     gdImagePtr list_img = gdImageCreate(box.width, box.height);
     gdImageCopy(list_img, img, 0, 0, box.x, box.y, box.width, box.height);
     int black = gdImageColorResolve(list_img, 0, 0, 0);
     int w = gdImageSX(list_img);
     int h = gdImageSY(list_img);
 
-    // 1. DETECT COLUMNS (Handles Level 3 multi-column layout)
-    int* v_proj = (int*)calloc(w, sizeof(int));
-    for(int x=0; x<w; x++) 
-        for(int y=0; y<h; y++) 
-            if(gdImageGetPixel(list_img, x, y) == black) v_proj[x]++;
-
-    int col_starts[10];
-    int col_ends[10];
-    int num_cols = 0;
-    int inside_col = 0;
-    
-    for(int x=0; x<w; x++) {
-        if(v_proj[x] > 1) { // Threshold > 1 to ignore noise
-            if(!inside_col) {
-                if(num_cols < 10) col_starts[num_cols] = x;
-                inside_col = 1;
-            }
-        } else {
-            if(inside_col) {
-                // Check if gap is significant (>10px) to separate columns
-                int gap_w = 0;
-                int gx = x;
-                while(gx < w && v_proj[gx] <= 1) { gap_w++; gx++; }
-                
-                if(gap_w > 10 || gx == w) {
-                    if(num_cols < 10) {
-                        col_ends[num_cols] = x;
-                        num_cols++;
-                    }
-                    inside_col = 0;
-                }
-            }
-        }
-    }
-    if(inside_col && num_cols < 10) col_ends[num_cols++] = w;
-
     int word_count = 0;
 
-    // 2. PROCESS EACH COLUMN
-    for(int c=0; c<num_cols; c++) {
-        int cx = col_starts[c];
-        int cw = col_ends[c] - cx;
-        if(cw < 5) continue;
-
-        // 3. DETECT WORDS (Horizontal Projection within column)
-        int* h_proj = (int*)calloc(h, sizeof(int));
-        for(int y=0; y<h; y++) 
-            for(int x=cx; x<cx+cw; x++) 
-                if(gdImageGetPixel(list_img, x, y) == black) h_proj[y]++;
-
-        int in_word = 0;
-        int word_y = 0;
-
-        for(int y=0; y<h; y++) {
-            if(h_proj[y] > 1) {
-                if(!in_word) {
-                    word_y = y;
-                    in_word = 1;
-                }
-            } else {
-                if(in_word) {
-                    int word_h = y - word_y;
-                    
-                    // Create directory for this word: ../data/wordlist/cells/word_0/
-                    char word_dir[256];
-                    sprintf(word_dir, "../data/wordlist/cells/word_%d", word_count);
-                    mkdir(word_dir, 0777);
-
-                    // 4. SEGMENT WORD INTO LETTERS
-                    // We extract the word strip first to simplify projection
-                    gdImagePtr word_strip = gdImageCreate(cw, word_h);
-                    gdImageCopy(word_strip, list_img, 0, 0, cx, word_y, cw, word_h);
-                    int ws_black = gdImageColorResolve(word_strip, 0, 0, 0);
-
-                    // Vertical Projection on the word strip
-                    int* let_proj = (int*)calloc(cw, sizeof(int));
-                    for(int lx=0; lx<cw; lx++) 
-                        for(int ly=0; ly<word_h; ly++) 
-                            if(gdImageGetPixel(word_strip, lx, ly) == ws_black) let_proj[lx]++;
-
-                    int in_letter = 0;
-                    int let_x = 0;
-                    int letter_idx = 0;
-
-                    for(int lx=0; lx<cw; lx++) {
-                        if(let_proj[lx] > 0) { // Any ink
-                            if(!in_letter) {
-                                let_x = lx;
-                                in_letter = 1;
-                            }
-                        } else {
-                            if(in_letter) {
-                                // Save Letter
-                                char fname[512];
-                                sprintf(fname, "%s/letter_%d.png", word_dir, letter_idx++);
-                                save_letter_28x28(word_strip, let_x, 0, lx-let_x, word_h, fname);
-                                in_letter = 0;
-                            }
-                        }
-                    }
-                    if(in_letter) {
-                        char fname[512];
-                        sprintf(fname, "%s/letter_%d.png", word_dir, letter_idx++);
-                        save_letter_28x28(word_strip, let_x, 0, cw-let_x, word_h, fname);
-                    }
-
-                    free(let_proj);
-                    gdImageDestroy(word_strip);
-                    word_count++;
-                    in_word = 0;
-                }
-            }
+    // --- STEP 1: HORIZONTAL PROJECTION (FIND ROWS) ---
+    // We scan the full width to find lines of text.
+    int* h_proj = calloc(h, sizeof(int));
+    for(int y=0; y<h; y++) {
+        for(int x=0; x<w; x++) {
+            if(gdImageGetPixel(list_img, x, y) == black) h_proj[y]++;
         }
-        free(h_proj);
     }
     
-    free(v_proj);
+    int in_row = 0;
+    int wy = 0;
+    int noise_floor = 2; // Low threshold to catch dots/thin lines
+
+    for(int y=0; y<h; y++) {
+        int is_ink = (h_proj[y] > noise_floor);
+        int is_last = (y == h - 1);
+
+        if(is_ink) { 
+            if(!in_row) { wy = y; in_row = 1; }
+            if (is_last && in_row) { /* fallthrough to process last row */ } 
+            else { continue; }
+        } 
+        
+        if(in_row && (!is_ink || is_last)) {
+            // Found a row (Line of text)
+            int wh = (is_last && is_ink) ? (y - wy + 1) : (y - wy);
+            in_row = 0; // Reset flag
+
+            // Skip noise lines
+            if (wh < 8) continue;
+
+            // --- STEP 2: EXTRACT BLOBS FROM THIS ROW ---
+            gdImagePtr strip = gdImageCreate(w, wh);
+            gdImageCopy(strip, list_img, 0, 0, 0, wy, w, wh);
+            
+            // Connected Component Analysis (Flood Fill)
+            int* visited = calloc(w * wh, sizeof(int));
+            Blob blobs[200];
+            int b_count = 0;
+            
+            for(int by=0; by<wh; by++) {
+                for(int bx=0; bx<w; bx++) {
+                    if(!visited[by*w+bx] && gdImageGetPixel(strip, bx, by)==black) {
+                        int min_x=bx, max_x=bx, min_y=by, max_y=by;
+                        
+                        // Iterative Flood Fill
+                        int* stack = malloc(w*wh*2*sizeof(int));
+                        int top=0;
+                        stack[top++] = bx; stack[top++] = by;
+                        visited[by*w+bx] = 1;
+                        
+                        while(top>0) {
+                            int cur_y = stack[--top]; 
+                            int cur_x = stack[--top];
+                            
+                            if(cur_x < min_x) min_x = cur_x; 
+                            if(cur_x > max_x) max_x = cur_x;
+                            if(cur_y < min_y) min_y = cur_y; 
+                            if(cur_y > max_y) max_y = cur_y;
+                            
+                            int dx[]={1,-1,0,0}, dy[]={0,0,1,-1};
+                            for(int i=0; i<4; i++) {
+                                int nx=cur_x+dx[i], ny=cur_y+dy[i];
+                                if(nx>=0 && nx<w && ny>=0 && ny<wh) {
+                                    if(!visited[ny*w+nx] && gdImageGetPixel(strip, nx, ny)==black) {
+                                        visited[ny*w+nx]=1;
+                                        stack[top++]=nx; stack[top++]=ny;
+                                    }
+                                }
+                            }
+                        }
+                        free(stack);
+                        if (b_count < 200) blobs[b_count++] = (Blob){min_x, min_y, max_x-min_x+1, max_y-min_y+1};
+                    }
+                }
+            }
+            free(visited);
+
+            // Merge Vertical Blobs (Dots i/j)
+            for(int i=0; i<b_count; i++) {
+                if(blobs[i].w == 0) continue; 
+                for(int j=i+1; j<b_count; j++) {
+                    if(blobs[j].w == 0) continue;
+                    int overlap = (blobs[i].x < blobs[j].x + blobs[j].w && blobs[i].x + blobs[i].w > blobs[j].x);
+                    if(overlap) {
+                        int new_min_x = (blobs[i].x < blobs[j].x) ? blobs[i].x : blobs[j].x;
+                        int new_min_y = (blobs[i].y < blobs[j].y) ? blobs[i].y : blobs[j].y;
+                        int new_max_x = (blobs[i].x+blobs[i].w > blobs[j].x+blobs[j].w) ? blobs[i].x+blobs[i].w : blobs[j].x+blobs[j].w;
+                        int new_max_y = (blobs[i].y+blobs[i].h > blobs[j].y+blobs[j].h) ? blobs[i].y+blobs[i].h : blobs[j].y+blobs[j].h;
+                        blobs[i].x = new_min_x; blobs[i].y = new_min_y;
+                        blobs[i].w = new_max_x - new_min_x; blobs[i].h = new_max_y - new_min_y;
+                        blobs[j].w = 0; 
+                    }
+                }
+            }
+
+            qsort(blobs, b_count, sizeof(Blob), compare_x);
+
+            // --- STEP 3: SAVE BLOBS (FIXED: One Word Per Row) ---
+            // Removed the "Gap > 20px" check because it was splitting single words like "RUS T"
+            char w_dir[256];
+            sprintf(w_dir, "../data/wordlist/cells/word_%d", word_count++);
+            mkdir(w_dir, 0777);
+            
+            int l_idx = 0;
+            for(int i=0; i<b_count; i++) {
+                if(blobs[i].w > 0) {
+                    process_and_save_blob(strip, blobs[i].x, blobs[i].y, blobs[i].w, blobs[i].h, w_dir, &l_idx);
+                }
+            }
+            
+            gdImageDestroy(strip);
+        }
+    }
+    
+    free(h_proj);
     gdImageDestroy(list_img);
-    printf("Extracted %d words to ../data/wordlist/cells/\n", word_count);
+    printf("✓ Extracted %d words via Row-Based Analysis.\n", word_count);
 }
