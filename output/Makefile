@@ -1,9 +1,9 @@
 CC = gcc
-CFLAGS = -Wall -Wextra
+CFLAGS = -Wall -Wextra -lpng
 TARGET = output.c
 
 all: $(TARGET)
-	$(CC) $(CFLAGS) -o output $(TARGET) -lpng
+	$(CC) $(CFLAGS) -o output $(TARGET)
 
 clean:
 	rm -f output output.png
