@@ -11,4 +11,4 @@ all: $(TARGET)
 clean:
 	rm -f solver coords.txt grid.txt words.txt
 
-.PHONY: all clean solv2
+.PHONY: all clean solv1
