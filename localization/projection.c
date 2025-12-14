@@ -1,11 +1,13 @@
 #include "localization.h"
 
 int* compute_vertical_projection(gdImagePtr img) {
-    return compute_vertical_projection_within(img, (BoundingBox){0, 0, gdImageSX(img), gdImageSY(img)});
+    return compute_vertical_projection_within(img, 
+		    (BoundingBox){0, 0, gdImageSX(img), gdImageSY(img)});
 }
 
 int* compute_horizontal_projection(gdImagePtr img) {
-    return compute_horizontal_projection_within(img, (BoundingBox){0, 0, gdImageSX(img), gdImageSY(img)});
+    return compute_horizontal_projection_within(img, 
+		    (BoundingBox){0, 0, gdImageSX(img), gdImageSY(img)});
 }
 
 int* compute_vertical_projection_within(gdImagePtr img, BoundingBox area) {
@@ -15,7 +17,7 @@ int* compute_vertical_projection_within(gdImagePtr img, BoundingBox area) {
             int px = area.x + x;
             int py = area.y + y;
             if (px < gdImageSX(img) && py < gdImageSY(img)) {
-                if (gdImageGetPixel(img, px, py) == 0) { // Check for black pixel
+                if (gdImageGetPixel(img, px, py) == 0) { // Check for bp
                     proj[x]++;
                 }
             }

@@ -3,7 +3,8 @@
 #include <sys/types.h>
 
 // save 28x28 centered 
-static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char* filename) {
+static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h,
+		const char* filename) {
     if (w < 2 || h < 2) return;
     gdImagePtr dest = gdImageCreateTrueColor(28, 28);
     int white = gdImageColorAllocate(dest, 255, 255, 255);
@@ -45,7 +46,8 @@ static gdImagePtr remove_grid_lines(gdImagePtr src) {
         for (int x = 0; x < w; x++) {
             if (gdImageGetPixel(clean, x, y) == black) run++;
             else run = 0;
-            if (run > w * 0.2) { gdImageLine(clean, x-run, y, w, y, white); break; }
+            if (run > w * 0.2)
+	    { gdImageLine(clean, x-run, y, w, y, white); break; }
         }
     }
     for (int x = 0; x < w; x++) {
@@ -53,7 +55,8 @@ static gdImagePtr remove_grid_lines(gdImagePtr src) {
         for (int y = 0; y < h; y++) {
             if (gdImageGetPixel(clean, x, y) == black) run++;
             else run = 0;
-            if (run > h * 0.2) { gdImageLine(clean, x, y-run, x, h, white); break; }
+            if (run > h * 0.2)
+	    { gdImageLine(clean, x, y-run, x, h, white); break; }
         }
     }
     return clean;
@@ -76,7 +79,8 @@ int compare_blobs(const void* a, const void* b) {
     }
 }
 
-void find_blob(gdImagePtr img, int x, int y, int* visited, int w, int h, Blob* b) {
+void find_blob(gdImagePtr img, int x, int y, int* visited, int w, int h,
+		Blob* b) {
     // iterative because recursive cause problems
     int* stack_x = malloc(w * h * sizeof(int));
     int* stack_y = malloc(w * h * sizeof(int));
@@ -106,7 +110,8 @@ void find_blob(gdImagePtr img, int x, int y, int* visited, int w, int h, Blob* b
             int ny = cy + dy[i];
             
             if(nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                if(!visited[ny * w + nx] && gdImageGetPixel(img, nx, ny) == black) {
+                if(!visited[ny * w + nx] && gdImageGetPixel(img, nx, ny)
+				== black) {
                     visited[ny * w + nx] = 1;
                     stack_x[top] = nx; stack_y[top] = ny; top++;
                 }
@@ -128,7 +133,8 @@ void extract_grid_letters(gdImagePtr img, BoundingBox grid_box) {
     mkdir("../data/grid/cells", 0777);
 
     gdImagePtr grid_img = gdImageCreate(grid_box.width, grid_box.height);
-    gdImageCopy(grid_img, img, 0, 0, grid_box.x, grid_box.y, grid_box.width, grid_box.height);
+    gdImageCopy(grid_img, img, 0, 0,
+		    grid_box.x, grid_box.y, grid_box.width, grid_box.height);
     
     gdImagePtr clean = remove_grid_lines(grid_img);
     int w = gdImageSX(clean);
@@ -160,7 +166,8 @@ void extract_grid_letters(gdImagePtr img, BoundingBox grid_box) {
     for(int i=0; i<blob_count; i++) {
         char fname[64];
         sprintf(fname, "../data/grid/cells/cell_%d.png", i);
-        save_for_cnn(clean, blobs[i].x, blobs[i].y, blobs[i].w, blobs[i].h, fname);
+        save_for_cnn(clean,
+			blobs[i].x, blobs[i].y, blobs[i].w, blobs[i].h, fname);
     }
     
     free(visited);

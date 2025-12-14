@@ -81,7 +81,8 @@ BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid) {
     float d_bottom = get_density(img, bottom_area);
     float d_left = get_density(img, left_area);
 
-    printf("WORDLIST SEARCH / Densities - Right: %.4f, Bottom: %.4f, Left: %.4f\n", d_right, d_bottom, d_left);
+    printf("WORDLIST SEARCH / Densities - Right:"); 
+    printf("%.4f, Bottom: %.4f,Left: %.4f\n", d_right, d_bottom, d_left);
 
     BoundingBox best_region = {0,0,0,0};
 

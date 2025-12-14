@@ -4,7 +4,8 @@
 #include <limits.h>
 #include <math.h>
 
-static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char* filename) {
+static void save_for_cnn(gdImagePtr src,
+		int x, int y, int w, int h, const char* filename) {
     if (w < 2 || h < 2) return;
     gdImagePtr dest = gdImageCreateTrueColor(28, 28);
     int white = gdImageColorAllocate(dest, 255, 255, 255);
@@ -32,7 +33,8 @@ static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char*
     gdImageDestroy(dest);
 }
 
-static void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, char* base_dir, int* idx) {
+static void process_and_save_blob(gdImagePtr strip,
+		int x, int y, int w, int h, char* base_dir, int* idx) {
     float aspect = (float)w / h;
 
     int do_split = 0;
@@ -83,7 +85,8 @@ static void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, 
 
     if (do_split) {
         process_and_save_blob(strip, x, y, split_x, h, base_dir, idx);
-        process_and_save_blob(strip, x + split_x, y, w - split_x, h, base_dir, idx);
+        process_and_save_blob(strip, x + split_x, y, w - split_x, h,
+			base_dir, idx);
     } else {
         if(w > 2 && h > 5) {
             char fname[512];
@@ -149,7 +152,8 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
             
             for(int by=0; by<wh; by++) {
                 for(int bx=0; bx<w; bx++) {
-                    if(!visited[by*w+bx] && gdImageGetPixel(strip, bx, by)==black) {
+                    if(!visited[by*w+bx] && gdImageGetPixel(strip, bx, by)
+				    ==black) {
                         int min_x=bx, max_x=bx, min_y=by, max_y=by;
                         
                         int* stack = malloc(w*wh*2*sizeof(int));
@@ -170,7 +174,9 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
                             for(int i=0; i<4; i++) {
                                 int nx=cur_x+dx[i], ny=cur_y+dy[i];
                                 if(nx>=0 && nx<w && ny>=0 && ny<wh) {
-                                    if(!visited[ny*w+nx] && gdImageGetPixel(strip, nx, ny)==black) {
+                                    if(!visited[ny*w+nx] &&
+						    gdImageGetPixel
+						    (strip, nx, ny)==black) {
                                         visited[ny*w+nx]=1;
                                         stack[top++]=nx; stack[top++]=ny;
                                     }
@@ -178,7 +184,9 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
                             }
                         }
                         free(stack);
-                        if (b_count < 200) blobs[b_count++] = (Blob){min_x, min_y, max_x-min_x+1, max_y-min_y+1};
+                        if (b_count < 200) blobs[b_count++] =
+				(Blob){min_x, min_y, max_x-min_x+1,
+					max_y-min_y+1};
                     }
                 }
             }
@@ -189,14 +197,25 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
                 if(blobs[i].w == 0) continue; 
                 for(int j=i+1; j<b_count; j++) {
                     if(blobs[j].w == 0) continue;
-                    int overlap = (blobs[i].x < blobs[j].x + blobs[j].w && blobs[i].x + blobs[i].w > blobs[j].x);
+                    int overlap = (blobs[i].x < blobs[j].x
+				    + blobs[j].w && blobs[i].x 
+				    + blobs[i].w > blobs[j].x);
                     if(overlap) {
-                        int new_min_x = (blobs[i].x < blobs[j].x) ? blobs[i].x : blobs[j].x;
-                        int new_min_y = (blobs[i].y < blobs[j].y) ? blobs[i].y : blobs[j].y;
-                        int new_max_x = (blobs[i].x+blobs[i].w > blobs[j].x+blobs[j].w) ? blobs[i].x+blobs[i].w : blobs[j].x+blobs[j].w;
-                        int new_max_y = (blobs[i].y+blobs[i].h > blobs[j].y+blobs[j].h) ? blobs[i].y+blobs[i].h : blobs[j].y+blobs[j].h;
+                        int new_min_x = (blobs[i].x < blobs[j].x) 
+				? blobs[i].x : blobs[j].x;
+                        int new_min_y = (blobs[i].y < blobs[j].y) 
+				? blobs[i].y : blobs[j].y;
+                        int new_max_x = (blobs[i].x+blobs[i].w > 
+					blobs[j].x+blobs[j].w) ? 
+					blobs[i].x+blobs[i].w : 
+					blobs[j].x+blobs[j].w;
+                        int new_max_y = (blobs[i].y+blobs[i].h > 
+					blobs[j].y+blobs[j].h) ? 
+					blobs[i].y+blobs[i].h : 
+					blobs[j].y+blobs[j].h;
                         blobs[i].x = new_min_x; blobs[i].y = new_min_y;
-                        blobs[i].w = new_max_x - new_min_x; blobs[i].h = new_max_y - new_min_y;
+                        blobs[i].w = new_max_x - new_min_x; blobs[i].h = 
+				new_max_y - new_min_y;
                         blobs[j].w = 0; 
                     }
                 }
@@ -211,7 +230,9 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
             int l_idx = 0;
             for(int i=0; i<b_count; i++) {
                 if(blobs[i].w > 0) {
-                    process_and_save_blob(strip, blobs[i].x, blobs[i].y, blobs[i].w, blobs[i].h, w_dir, &l_idx);
+                    process_and_save_blob(strip, blobs[i].x, 
+				    blobs[i].y, blobs[i].w, 
+				    blobs[i].h, w_dir, &l_idx);
                 }
             }
             

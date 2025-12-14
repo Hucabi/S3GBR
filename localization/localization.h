@@ -16,10 +16,12 @@ int* compute_vertical_projection_within(gdImagePtr img, BoundingBox area);
 int* compute_horizontal_projection_within(gdImagePtr img, BoundingBox area);
 BoundingBox find_grid_by_projection(gdImagePtr img);
 BoundingBox find_grid_by_text_clustering(gdImagePtr img);
-void flood_fill(gdImagePtr img, int x, int y, BoundingBox* bbox, int** visited);
+void flood_fill(gdImagePtr img, int x, int y, BoundingBox* bbox,
+		int** visited);
 void extract_grid_letters(gdImagePtr img, BoundingBox grid_box);
 BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid);
 void extract_wordlist_letters(gdImagePtr img, BoundingBox box);
-void save_debug_image(gdImagePtr img, char* filename, BoundingBox grid, BoundingBox wordlist);
+void save_debug_image(gdImagePtr img, char* filename, BoundingBox grid,
+		BoundingBox wordlist);
 
 #endif

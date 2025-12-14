@@ -1,7 +1,8 @@
 #include "localization.h"
 #include <math.h>
 
-static BoundingBox get_component_bbox(gdImagePtr img, int x, int y, int** visited) {
+static BoundingBox get_component_bbox(gdImagePtr img,
+		int x, int y, int** visited) {
     int width = gdImageSX(img);
     int height = gdImageSY(img);
     int min_x = x, max_x = x, min_y = y, max_y = y;
@@ -29,7 +30,8 @@ static BoundingBox get_component_bbox(gdImagePtr img, int x, int y, int** visite
         for (int i = 0; i < 4; i++) {
             int nx = cx + dx[i]; int ny = cy + dy[i];
             if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                if (!visited[ny][nx] && gdImageGetPixel(img, nx, ny) == target) {
+                if (!visited[ny][nx] && gdImageGetPixel(img, nx, ny) == target)
+		{
                     visited[ny][nx] = 1;
                     stack_x[top] = nx; stack_y[top] = ny; top++;
                 }
@@ -62,7 +64,8 @@ static BoundingBox refine_grid_region(gdImagePtr img, BoundingBox rough_grid) {
     int* h_proj = (int*)calloc(rough_grid.height, sizeof(int));
     for(int y=0; y < rough_grid.height; y++) 
         for(int x=0; x < rough_grid.width; x++) 
-            if(gdImageGetPixel(img, rough_grid.x+x, rough_grid.y+y) == 0) h_proj[y]++;
+            if(gdImageGetPixel(img, rough_grid.x+x, rough_grid.y+y) == 0)
+		    h_proj[y]++;
 
     int header_cut_y = -1;
     int gap = 0;
@@ -115,7 +118,8 @@ BoundingBox find_grid_by_projection(gdImagePtr img) {
                 int is_noise = (bb.width < 5 || bb.height < 5); 
                 int is_frame = (bb.width > width-10 || bb.height > height-10); 
                 if(!is_noise && !is_frame) {
-                    gdImageFilledRectangle(clean, bb.x, bb.y, bb.x+bb.width-1, bb.y+bb.height-1, black);
+                    gdImageFilledRectangle(clean, bb.x, bb.y, bb.x+bb.width-1,
+				    bb.y+bb.height-1, black);
                 }
             }
         }
@@ -127,13 +131,15 @@ BoundingBox find_grid_by_projection(gdImagePtr img) {
     int h_smear = has_lines ? 5 : 55;
     int v_smear = has_lines ? 5 : 40;
     
-    printf("  > GRID DETECTION / Lines: %s. Smear: %dx%d\n", has_lines ? "YES" : "NO", h_smear, v_smear);
+    printf("  > GRID DETECTION / Lines: %s. Smear: %dx%d\n",
+		    has_lines ? "YES" : "NO", h_smear, v_smear);
 
     for (int y = 0; y < height; y++) {
         int last=-1;
         for(int x=0; x<width; x++) {
             if(gdImageGetPixel(clean, x, y)==black) {
-                if(last!=-1 && x-last < h_smear) gdImageLine(clean, last, y, x, y, black);
+                if(last!=-1 && x-last < h_smear)
+			gdImageLine(clean, last, y, x, y, black);
                 last=x;
             }
         }
@@ -142,7 +148,8 @@ BoundingBox find_grid_by_projection(gdImagePtr img) {
         int last=-1;
         for(int y=0; y<height; y++) {
             if(gdImageGetPixel(clean, x, y)==black) {
-                if(last!=-1 && y-last < v_smear) gdImageLine(clean, x, last, x, y, black);
+                if(last!=-1 && y-last < v_smear)
+			gdImageLine(clean, x, last, x, y, black);
                 last=y;
             }
         }
@@ -182,5 +189,7 @@ BoundingBox find_grid_by_projection(gdImagePtr img) {
     return best;
 }
 
-BoundingBox find_grid_by_text_clustering(gdImagePtr img) { return find_grid_by_projection(img); }
-void flood_fill(gdImagePtr img, int x, int y, BoundingBox* bbox, int** visited) { (void)img; (void)x; (void)y; (void)bbox; (void)visited; }
+BoundingBox find_grid_by_text_clustering(gdImagePtr img)
+{ return find_grid_by_projection(img); }
+void flood_fill(gdImagePtr img, int x, int y, BoundingBox* bbox, int** visited)
+{ (void)img; (void)x; (void)y; (void)bbox; (void)visited; }

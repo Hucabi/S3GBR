@@ -2,18 +2,25 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-void save_debug_image(gdImagePtr img, char* filename, BoundingBox grid, BoundingBox wordlist) {
+void save_debug_image(gdImagePtr img, char* filename,
+		BoundingBox grid, BoundingBox wordlist) {
     int red = gdImageColorAllocate(img, 255, 0, 0);
     int green = gdImageColorAllocate(img, 0, 255, 0);
     
     // Draw grid in red
-    gdImageRectangle(img, grid.x, grid.y, grid.x + grid.width, grid.y + grid.height, red);
-    gdImageRectangle(img, grid.x+1, grid.y+1, grid.x + grid.width-1, grid.y + grid.height-1, red); // Thicker
+    gdImageRectangle(img, grid.x, grid.y, 
+		    grid.x + grid.width, grid.y + grid.height, red);
+    gdImageRectangle(img, grid.x+1, grid.y+1, grid.x + grid.width-1,
+		    grid.y + grid.height-1, red); // Thicker
 
     // Draw worldlist in green
     if (wordlist.width > 0) {
-        gdImageRectangle(img, wordlist.x, wordlist.y, wordlist.x + wordlist.width, wordlist.y + wordlist.height, green);
-        gdImageRectangle(img, wordlist.x+1, wordlist.y+1, wordlist.x + wordlist.width-1, wordlist.y + wordlist.height-1, green);
+        gdImageRectangle(img, wordlist.x, wordlist.y,
+			wordlist.x + wordlist.width,
+			wordlist.y + wordlist.height, green);
+        gdImageRectangle(img, wordlist.x+1, wordlist.y+1,
+			wordlist.x + wordlist.width-1,
+			wordlist.y + wordlist.height-1, green);
     }
 
     FILE* out = fopen(filename, "wb");
