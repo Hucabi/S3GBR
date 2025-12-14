@@ -6,11 +6,11 @@ void save_debug_image(gdImagePtr img, char* filename, BoundingBox grid, Bounding
     int red = gdImageColorAllocate(img, 255, 0, 0);
     int green = gdImageColorAllocate(img, 0, 255, 0);
     
-    // Draw Grid (Red)
+    // Draw grid in red
     gdImageRectangle(img, grid.x, grid.y, grid.x + grid.width, grid.y + grid.height, red);
     gdImageRectangle(img, grid.x+1, grid.y+1, grid.x + grid.width-1, grid.y + grid.height-1, red); // Thicker
 
-    // Draw Wordlist (Green)
+    // Draw worldlist in green
     if (wordlist.width > 0) {
         gdImageRectangle(img, wordlist.x, wordlist.y, wordlist.x + wordlist.width, wordlist.y + wordlist.height, green);
         gdImageRectangle(img, wordlist.x+1, wordlist.y+1, wordlist.x + wordlist.width-1, wordlist.y + wordlist.height-1, green);
@@ -20,7 +20,7 @@ void save_debug_image(gdImagePtr img, char* filename, BoundingBox grid, Bounding
     if (out) {
         gdImagePng(img, out);
         fclose(out);
-        printf("✓ Debug visualization saved: %s\n", filename);
+        printf("Debug visualization saved: %s\n", filename);
     }
 }
 
@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    printf("=== OCR Wordsearch - Localization & Extraction ===\n");
+    printf("### OCR Wordsearch - Localization & Extraction ###\n");
     printf("Input image: %s\n\n", argv[1]);
 
     FILE* in = fopen(argv[1], "rb");
@@ -48,15 +48,13 @@ int main(int argc, char** argv) {
 
     printf("Image loaded: %dx%d pixels\n\n", gdImageSX(img), gdImageSY(img));
 
-    // --- STEP 1: Grid Detection ---
-    printf("[STEP 1] Grid Detection\n");
+    printf("STEP 1 = Grid Detection\n");
     printf("-----------------------------------\n");
     BoundingBox grid = find_grid_by_projection(img);
-    printf("✓ Grid found: x=%d, y=%d, width=%d, height=%d\n\n", 
+    printf("Grid found: x=%d, y=%d, width=%d, height=%d\n\n", 
            grid.x, grid.y, grid.width, grid.height);
 
-    // --- STEP 2: Grid Extraction ---
-    printf("[STEP 2] Grid Letter Extraction\n");
+    printf("STEP 2 = Grid Letter Extraction\n");
     printf("-----------------------------------\n");
     if (grid.width > 0 && grid.height > 0) {
         extract_grid_letters(img, grid);
@@ -65,15 +63,13 @@ int main(int argc, char** argv) {
     }
     printf("\n");
 
-    // --- STEP 3: Wordlist Detection ---
-    printf("[STEP 3] Wordlist Detection\n");
+    printf("STEP 3 = Wordlist Detection\n");
     printf("-----------------------------------\n");
     BoundingBox wordlist = find_wordlist_region(img, grid);
-    printf("✓ Wordlist found: x=%d, y=%d, width=%d, height=%d\n\n", 
+    printf("Wordlist found: x=%d, y=%d, width=%d, height=%d\n\n", 
            wordlist.x, wordlist.y, wordlist.width, wordlist.height);
 
-    // --- STEP 4: Wordlist Extraction ---
-    printf("[STEP 4] Wordlist Letter Extraction\n");
+    printf("STEP 4 = Wordlist Letter Extraction\n");
     printf("-----------------------------------\n");
     if (wordlist.width > 0 && wordlist.height > 0) {
         extract_wordlist_letters(img, wordlist);
@@ -82,8 +78,7 @@ int main(int argc, char** argv) {
     }
     printf("\n");
 
-    // --- STEP 5: Debug Vis ---
-    printf("[STEP 5] Debug Visualization\n");
+    printf("STEP 5 = Debug Visualization\n");
     printf("-----------------------------------\n");
     save_debug_image(img, "localization_debug.png", grid, wordlist);
     printf("\n");

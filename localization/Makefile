@@ -2,7 +2,6 @@ CC = gcc
 CFLAGS = -Wall -Wextra -std=c99 -O2
 LIBS = -lgd -lm
 
-# Source files
 SOURCES = projection.c \
           grid_detection.c \
           letter_extraction.c \
@@ -10,10 +9,8 @@ SOURCES = projection.c \
           wordlist_extraction.c \
           main_with_wordlist.c
 
-# Object files
 OBJECTS = $(SOURCES:.c=.o)
 
-# Executable
 TARGET = wordsearch_extractor
 
 .PHONY: all clean setup test
@@ -27,18 +24,14 @@ $(TARGET): $(OBJECTS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	# Remove build artifacts
 	rm -f $(OBJECTS) $(TARGET)
 	rm -f localization_debug.png
-	# Remove all files in the data directories (PNGs, JPGs, etc.)
 	rm -rf ../data/grid/cells/*
 	rm -rf ../data/wordlist/cells/*
 
-# Create necessary directories
 setup:
 	mkdir -p ../data/grid/cells
 	mkdir -p ../data/wordlist/cells
 
-# Run test
 test: $(TARGET) setup
 	./$(TARGET) test_image.png

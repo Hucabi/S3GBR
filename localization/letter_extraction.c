@@ -2,7 +2,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-// --- Helper: Save 28x28 Centered ---
+// save 28x28 centered 
 static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char* filename) {
     if (w < 2 || h < 2) return;
     gdImagePtr dest = gdImageCreateTrueColor(28, 28);
@@ -19,7 +19,6 @@ static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char*
         new_w = (int)((float)w / h * target); 
     }
     
-    // Fixed indentation
     if (new_w < 1) new_w = 1; 
     if (new_h < 1) new_h = 1;
 
@@ -32,7 +31,6 @@ static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char*
     gdImageDestroy(dest);
 }
 
-// --- Helper: Line Removal ---
 static gdImagePtr remove_grid_lines(gdImagePtr src) {
     int w = gdImageSX(src);
     int h = gdImageSY(src);
@@ -41,7 +39,7 @@ static gdImagePtr remove_grid_lines(gdImagePtr src) {
     int white = gdImageColorResolve(clean, 255, 255, 255);
     int black = gdImageColorResolve(clean, 0, 0, 0);
 
-    // Aggressive line removal (> 20% of dimension)
+    // (> 20% of dimension)
     for (int y = 0; y < h; y++) {
         int run = 0;
         for (int x = 0; x < w; x++) {
@@ -61,28 +59,25 @@ static gdImagePtr remove_grid_lines(gdImagePtr src) {
     return clean;
 }
 
-// --- Struct for sorting blobs ---
 typedef struct {
     int x, y, w, h;
 } Blob;
 
-// Comparator for sorting blobs (Row by Row, then Left to Right)
 int compare_blobs(const void* a, const void* b) {
     Blob* blobA = (Blob*)a;
     Blob* blobB = (Blob*)b;
     
-    // Determine if they are on the "same row" (within 20px Y-difference)
+    // Determine if they are on the "same row" 
     int y_diff = abs(blobA->y - blobB->y);
     if (y_diff > 20) {
-        return blobA->y - blobB->y; // Sort by Y
+        return blobA->y - blobB->y; 
     } else {
-        return blobA->x - blobB->x; // Same row, sort by X
+        return blobA->x - blobB->x; 
     }
 }
 
-// --- Flood Fill Component Finder ---
 void find_blob(gdImagePtr img, int x, int y, int* visited, int w, int h, Blob* b) {
-    // Standard iterative flood fill to avoid stack overflow
+    // iterative because recursive cause problems
     int* stack_x = malloc(w * h * sizeof(int));
     int* stack_y = malloc(w * h * sizeof(int));
     int top = 0;
@@ -129,21 +124,19 @@ void find_blob(gdImagePtr img, int x, int y, int* visited, int w, int h, Blob* b
 }
 
 void extract_grid_letters(gdImagePtr img, BoundingBox grid_box) {
-    printf("[Extraction] Component-Based Grid Extraction...\n");
+    printf("Extraction...\n");
     mkdir("../data/grid/cells", 0777);
 
     gdImagePtr grid_img = gdImageCreate(grid_box.width, grid_box.height);
     gdImageCopy(grid_img, img, 0, 0, grid_box.x, grid_box.y, grid_box.width, grid_box.height);
     
-    // 1. Remove Lines -> Letters become Islands
     gdImagePtr clean = remove_grid_lines(grid_img);
     int w = gdImageSX(clean);
     int h = gdImageSY(clean);
     int black = gdImageColorResolve(clean, 0, 0, 0);
 
-    // 2. Find All Islands (Blobs)
     int* visited = calloc(w * h, sizeof(int));
-    Blob blobs[1000]; // Max expected letters
+    Blob blobs[1000]; 
     int blob_count = 0;
 
     for(int y=0; y<h; y++) {
@@ -160,15 +153,13 @@ void extract_grid_letters(gdImagePtr img, BoundingBox grid_box) {
         }
     }
 
-    // 3. Sort Blobs to reconstruct grid order
     qsort(blobs, blob_count, sizeof(Blob), compare_blobs);
     
     printf("  > Found %d distinct letter blobs.\n", blob_count);
 
-    // 4. Save
     for(int i=0; i<blob_count; i++) {
         char fname[64];
-        sprintf(fname, "../data/grid/cells/cell_%d.png", i);
+        sprintf(fname, "data/grid/cells/cell_%d.png", i);
         save_for_cnn(clean, blobs[i].x, blobs[i].y, blobs[i].w, blobs[i].h, fname);
     }
     

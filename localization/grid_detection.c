@@ -1,7 +1,6 @@
 #include "localization.h"
 #include <math.h>
 
-// [FIX] Added 'static'
 static BoundingBox get_component_bbox(gdImagePtr img, int x, int y, int** visited) {
     int width = gdImageSX(img);
     int height = gdImageSY(img);
@@ -41,7 +40,6 @@ static BoundingBox get_component_bbox(gdImagePtr img, int x, int y, int** visite
     return (BoundingBox){min_x, min_y, max_x - min_x + 1, max_y - min_y + 1};
 }
 
-// [FIX] Added 'static'
 static int has_solid_grid_lines(gdImagePtr img) {
     int w = gdImageSX(img);
     int h = gdImageSY(img);
@@ -60,7 +58,6 @@ static int has_solid_grid_lines(gdImagePtr img) {
     return 0;
 }
 
-// [FIX] Added 'static'
 static BoundingBox refine_grid_region(gdImagePtr img, BoundingBox rough_grid) {
     int* h_proj = (int*)calloc(rough_grid.height, sizeof(int));
     for(int y=0; y < rough_grid.height; y++) 
@@ -130,7 +127,7 @@ BoundingBox find_grid_by_projection(gdImagePtr img) {
     int h_smear = has_lines ? 5 : 55;
     int v_smear = has_lines ? 5 : 40;
     
-    printf("  > [Grid Detection] Lines: %s. Smear: %dx%d\n", has_lines ? "YES" : "NO", h_smear, v_smear);
+    printf("  > GRID DETECTION / Lines: %s. Smear: %dx%d\n", has_lines ? "YES" : "NO", h_smear, v_smear);
 
     for (int y = 0; y < height; y++) {
         int last=-1;

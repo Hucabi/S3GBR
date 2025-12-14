@@ -31,7 +31,7 @@ int* compute_horizontal_projection_within(gdImagePtr img, BoundingBox area) {
             int px = area.x + x;
             int py = area.y + y;
             if (px < gdImageSX(img) && py < gdImageSY(img)) {
-                if (gdImageGetPixel(img, px, py) == 0) { // Check for black pixel
+                if (gdImageGetPixel(img, px, py) == 0) {
                     proj[y]++;
                 }
             }

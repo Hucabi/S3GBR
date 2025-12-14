@@ -4,7 +4,6 @@
 #include <limits.h>
 #include <math.h>
 
-// [FIX] Added 'static' to prevent multiple definition errors during linking
 static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char* filename) {
     if (w < 2 || h < 2) return;
     gdImagePtr dest = gdImageCreateTrueColor(28, 28);
@@ -33,33 +32,24 @@ static void save_for_cnn(gdImagePtr src, int x, int y, int w, int h, const char*
     gdImageDestroy(dest);
 }
 
-// --- RECURSIVE BLOB SPLITTER ---
-// [FIX] Added 'static' to prevent linker errors
 static void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, char* base_dir, int* idx) {
     float aspect = (float)w / h;
-    
-    // --- DUAL-THRESHOLD STRATEGY ---
-    // 1. Wide blobs (> 1.2): Standard split.
-    // 2. Square-ish blobs (0.90 - 1.2): Strict split (only if connection is very thin).
-    //    This catches fused "LA" (leg connection) and "AT" (bar connection) 
-    //    while ignoring "M" or "W" (which have thick centers).
 
     int do_split = 0;
     int split_x = -1;
 
-    // Search Range: Widen to 15%-85% to catch asymmetric pairs like "LA" (L is narrow)
     int search_start = w * 0.15;
     int search_end = w * 0.85;
     
-    // Safety clamps
+    // safety clamps
     if (search_start < 1) search_start = 1;
     if (search_end > w - 2) search_end = w - 2;
 
-    if (aspect > 0.90) { // Look at anything wider than a very narrow letter
+    if (aspect > 0.90) { // Look at anything wider than a I
         int* proj = (int*)calloc(w, sizeof(int));
         int black = gdImageColorResolve(strip, 0, 0, 0);
         
-        // Compute Vertical Projection
+        // vertical projection
         for (int ix = 0; ix < w; ix++) {
             for (int iy = 0; iy < h; iy++) {
                 if (gdImageGetPixel(strip, x + ix, y + iy) == black) {
@@ -68,7 +58,7 @@ static void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, 
             }
         }
 
-        // Find the "thinnest" point (valley)
+        // find the thinest point = valley
         int min_ink = INT_MAX;
         if (search_start <= search_end) {
             for (int ix = search_start; ix <= search_end; ix++) {
@@ -82,14 +72,9 @@ static void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, 
 
         if (split_x != -1) {
             float ink_ratio = (float)min_ink / h;
-            
-            // CASE A: Wide Blob (Standard)
-            // Allow cuts even if connection is messy (up to 50% ink)
             if (aspect > 1.2 && ink_ratio < 0.50) {
                 do_split = 1;
             }
-            // CASE B: Condensed/Fused Pair (e.g. "LA", "AT")
-            // Strict: Only cut if connection is < 22% of height (single stroke thickness)
             else if (aspect > 0.90 && ink_ratio < 0.22) {
                 do_split = 1;
             }
@@ -100,7 +85,6 @@ static void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, 
         process_and_save_blob(strip, x, y, split_x, h, base_dir, idx);
         process_and_save_blob(strip, x + split_x, y, w - split_x, h, base_dir, idx);
     } else {
-        // Base Case: Save Letter
         if(w > 2 && h > 5) {
             char fname[512];
             sprintf(fname, "%s/letter_%d.png", base_dir, (*idx)++);
@@ -111,14 +95,13 @@ static void process_and_save_blob(gdImagePtr strip, int x, int y, int w, int h, 
 
 typedef struct { int x, y, w, h; } Blob;
 
-// [FIX] Added 'static'
 static int compare_x(const void* a, const void* b) {
     return ((Blob*)a)->x - ((Blob*)b)->x;
 }
 
 void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
-    printf("[Extraction] Row-Based Wordlist Extraction (Final Polish)...\n");
-    mkdir("../data/wordlist/cells", 0777);
+    printf("Extraction...\n");
+    mkdir("data/wordlist/cells", 0777);
 
     gdImagePtr list_img = gdImageCreate(box.width, box.height);
     gdImageCopy(list_img, img, 0, 0, box.x, box.y, box.width, box.height);
@@ -128,7 +111,6 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
 
     int word_count = 0;
 
-    // --- STEP 1: HORIZONTAL PROJECTION (FIND ROWS) ---
     int* h_proj = calloc(h, sizeof(int));
     for(int y=0; y<h; y++) {
         for(int x=0; x<w; x++) {
@@ -157,11 +139,10 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
 
             if (wh < 8) continue;
 
-            // --- STEP 2: EXTRACT BLOBS FROM THIS ROW ---
             gdImagePtr strip = gdImageCreate(w, wh);
             gdImageCopy(strip, list_img, 0, 0, 0, wy, w, wh);
             
-            // Flood Fill
+            // fLOOD fILL
             int* visited = calloc(w * wh, sizeof(int));
             Blob blobs[200];
             int b_count = 0;
@@ -171,7 +152,6 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
                     if(!visited[by*w+bx] && gdImageGetPixel(strip, bx, by)==black) {
                         int min_x=bx, max_x=bx, min_y=by, max_y=by;
                         
-                        // Iterative Stack Flood Fill
                         int* stack = malloc(w*wh*2*sizeof(int));
                         int top=0;
                         stack[top++] = bx; stack[top++] = by;
@@ -204,7 +184,7 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
             }
             free(visited);
 
-            // Merge Vertical Blobs (e.g. dots on i/j)
+            // merge vertical blobs 
             for(int i=0; i<b_count; i++) {
                 if(blobs[i].w == 0) continue; 
                 for(int j=i+1; j<b_count; j++) {
@@ -224,9 +204,8 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
 
             qsort(blobs, b_count, sizeof(Blob), compare_x);
 
-            // --- STEP 3: SAVE (1 ROW = 1 WORD) ---
             char w_dir[256];
-            sprintf(w_dir, "../data/wordlist/cells/word_%d", word_count++);
+            sprintf(w_dir, "data/wordlist/cells/word_%d", word_count++);
             mkdir(w_dir, 0777);
             
             int l_idx = 0;
@@ -242,5 +221,5 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
     
     free(h_proj);
     gdImageDestroy(list_img);
-    printf("✓ Extracted %d words via Row-Based Analysis.\n", word_count);
+    printf("Extracted %d words via Row-Based Analysis.\n", word_count);
 }

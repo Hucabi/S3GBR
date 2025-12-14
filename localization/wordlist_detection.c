@@ -1,6 +1,6 @@
 ﻿#include "localization.h"
 
-// Calculate black pixel density in a given rect
+// Calculate bp density in given rect
 static float get_density(gdImagePtr img, BoundingBox box) {
     if (box.width <= 0 || box.height <= 0) return 0.0;
     int black_pixels = 0;
@@ -18,7 +18,6 @@ static float get_density(gdImagePtr img, BoundingBox box) {
     return (float)black_pixels / (box.width * box.height);
 }
 
-// Refine a rough box to tightly fit the ink inside it
 static BoundingBox tighten_box(gdImagePtr img, BoundingBox rough) {
     int min_x = rough.x + rough.width;
     int max_x = rough.x;
@@ -43,7 +42,6 @@ static BoundingBox tighten_box(gdImagePtr img, BoundingBox rough) {
 
     if (!found) return (BoundingBox){0,0,0,0};
     
-    // Add small padding
     int pad = 5;
     return (BoundingBox){
         min_x - pad, 
@@ -57,8 +55,7 @@ BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid) {
     int w = gdImageSX(img);
     int h = gdImageSY(img);
     
-    // 1. Define Candidate Regions
-    // Right Side
+    // candidate regions
     BoundingBox right_area = {
         grid.x + grid.width, 
         0, 
@@ -66,7 +63,6 @@ BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid) {
         h
     };
     
-    // Bottom Side
     BoundingBox bottom_area = {
         0, 
         grid.y + grid.height, 
@@ -74,7 +70,6 @@ BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid) {
         h - (grid.y + grid.height)
     };
     
-    // Left Side (rare, but possible)
     BoundingBox left_area = {
         0, 
         0, 
@@ -86,11 +81,11 @@ BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid) {
     float d_bottom = get_density(img, bottom_area);
     float d_left = get_density(img, left_area);
 
-    printf("[Wordlist Search] Densities - Right: %.4f, Bottom: %.4f, Left: %.4f\n", d_right, d_bottom, d_left);
+    printf("WORDLIST SEARCH / Densities - Right: %.4f, Bottom: %.4f, Left: %.4f\n", d_right, d_bottom, d_left);
 
     BoundingBox best_region = {0,0,0,0};
 
-    // Heuristic: Pick the area with the highest density (ignoring tiny noise)
+    // pick area with highest density
     if (d_right > 0.005 && d_right >= d_bottom && d_right >= d_left) {
         printf("  > Found Wordlist on RIGHT\n");
         best_region = right_area;
