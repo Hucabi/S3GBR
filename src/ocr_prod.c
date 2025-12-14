@@ -36,52 +36,31 @@ static int cmp_cell_id(const void *a, const void *b)
     return x->id - y->id;
 }
 
-static char predict_char_thresh(Network *net, const char *img_path,
-                                double PTH, double MTH)
+static char predict_char_thresh(Network *net, const char *img_path)
 {
     double *x = NULL;
-    if (!load_image_for_training(img_path, &x)) return '?';
+    if (!load_image_for_training(img_path, &x))
+        return 'A';
 
     nn_forward_softmax(net, x);
 
-    int best = 0, second = 1;
-    if (net->a2[1] > net->a2[0]) 
-    { 
-        best = 1; 
-        second = 0; 
-    }
-
-    for (int k = 2; k < 26; ++k) 
-    {
-        if (net->a2[k] > net->a2[best]) 
-        { 
-            second = best; 
-            best = k; 
-        }
-        else if (net->a2[k] > net->a2[second]) 
-        { 
-            second = k; 
-        }
-    }
-
-    double p1 = net->a2[best];
-    double p2 = net->a2[second];
-    double margin = p1 - p2;
+    int best = 0;
+    for (int k = 1; k < 26; ++k)
+        if (net->a2[k] > net->a2[best])
+            best = k;
 
     free(x);
-
-    if (p1 < PTH || margin < MTH) return '?';
-    return (char)('A' + best);
+    return 'A' + best;
 }
 
 static char predict_char_grid(Network *net, const char *img_path)
 {
-    return predict_char_thresh(net, img_path, 0.55, 0.20);
+    return predict_char_thresh(net, img_path);
 }
 
 static char predict_char_word(Network *net, const char *img_path)
 {
-    return predict_char_thresh(net, img_path, 0.45, 0.12);
+    return predict_char_thresh(net, img_path);
 }
 
 

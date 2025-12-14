@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
     printf("=====================================\n");
     printf("      EXTRACTION COMPLETE      \n");
     printf("=====================================\n");
-    printf("Grid cells (32x32): data/grid/cells/\n");
+    printf("Grid cells (28x28): data/grid/cells/\n");
     printf("Wordlist letters (28x28): data/wordlist/cells/\n");
     printf("Debug visualization: localization_debug.png\n");
 
