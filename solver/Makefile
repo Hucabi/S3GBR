@@ -5,7 +5,10 @@ TARGET = solver.c
 all: $(TARGET)
 	$(CC) $(CFLAGS) -o solver $(TARGET) 
 
-clean:
-	rm -f solver
+1solv: solver1.c
+	$(CC) $(CFLAGS) -o solver solver1.c
 
-.PHONY: all clean
+clean:
+	rm -f solver coords.txt grid.txt words.txt
+
+.PHONY: all clean solv1

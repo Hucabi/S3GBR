@@ -4,6 +4,7 @@
 
 void solver(char* file, char* word);
 
-short search(int dir, int* coords, int* dim, char** grid, char* word, int len);
+int search_err(int dir, int r_start, int c_start, int* dim, char** grid,
+  char* word, int len)
 
 #endif
