@@ -1,8 +1,11 @@
 #ifndef ROTATION_H
 #define ROTATION_H
 
+// Simple noise removal
 void preprocess_ocr(unsigned char* img, unsigned char* bw, 
                     int width, int height, int channels);
+
+// Rotation functions
 double find_best_angle(unsigned char* gray, int width, int height);
 double row_variance(unsigned char* row, int width);
 double compute_variance_score(unsigned char* gray, int width, int height);

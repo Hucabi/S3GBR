@@ -2,15 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "image_loader.h"
-#include "image_utils.h"
-#include "grid_detection.h"
-#include "word_list_detection.h"
 #include <math.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+// Add these prototypes if they're not in a header
+void rgb_to_gray(unsigned char* img, unsigned char* gray, int width, int height, int channels);
+void binarize(unsigned char* gray, unsigned char* bw, int width, int height);
 
 double row_variance(unsigned char* row, int width)
 {
@@ -40,7 +40,6 @@ double compute_variance_score(unsigned char* gray, int width, int height)
     return score;
 }
 
-// Improved rotate_image function
 void rotate_image(unsigned char* src,
                   unsigned char* dest,
                   int width,
@@ -76,12 +75,10 @@ void rotate_image(unsigned char* src,
             if (ix >= 0 && ix < width && iy >= 0 && iy < height) {
                 dest[y * width + x] = src[iy * width + ix];
             }
-            // Outside bounds remain white (255)
         }
     }
 }
 
-// Save test images for debugging
 void save_rotation_test_images(unsigned char* image, int width, int height) {
     printf("\n=== SAVING ROTATION TEST IMAGES ===\n");
     
@@ -107,10 +104,6 @@ void save_rotation_test_images(unsigned char* image, int width, int height) {
         snprintf(filename, sizeof(filename), 
                  "data/debug/test_rotated_%+06.1fdeg.png", angle);
         
-        // Note: stbi_write_png is called from main.c, we just prepare the data
-        // In practice, we'd need to call it here, but for simplicity we'll
-        // just compute and display the scores
-        
         double score = compute_variance_score(buffer, width, height);
         printf("Angle %+6.1f°: variance score = %10.2f\n", angle, score);
     }
@@ -119,7 +112,6 @@ void save_rotation_test_images(unsigned char* image, int width, int height) {
     printf("Test angles evaluated. Scores shown above.\n");
 }
 
-// New improved find_best_angle with full angle detection
 double find_best_angle(unsigned char* gray, int width, int height)
 {
     printf("\n=== COMPLETE ROTATION ANGLE DETECTION ===\n");
