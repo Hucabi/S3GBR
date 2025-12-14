@@ -10,7 +10,8 @@ OCR_COMMON_SRCS := \
 	src/train_image_loader.c \
 	src/image_loader.c \
 	src/image_utils.c \
-	src/stb_impl.c 
+	src/stb_impl.c \
+	solver/solver1.c
 OCR_COMMON_OBJS := $(OCR_COMMON_SRCS:.c=.o)
 OCR_TRAIN_SRCS := \
 	src/dataset.c \
@@ -40,5 +41,6 @@ clean:
 	rm -f grid.txt words.txt
 	rm -rf data/grid/cells/*
 	rm -rf data/wordlist/cells/*
-	rm -f localization/localization_debug.png
+	rm -f localization_debug.png
+	rm -f coords.txt
 .PHONY: all clean

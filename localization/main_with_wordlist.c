@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include "../src/nn.h"
 #include "../src/ocr_prod.h"
+#include "../solver/solver1.h"
 
 void save_debug_image(gdImagePtr img, char* filename,
 		BoundingBox grid, BoundingBox wordlist) {
@@ -107,5 +108,15 @@ int main(int argc, char** argv) {
         printf("Error: calling OCR failed\n");
         return 1;
     }
+
+    printf("STEP 6 = Excuting Solver\n");
+    if(runSolver("grid.txt", "words.txt") != 0) 
+    {
+        printf("Error: Solver failed\n");
+        return 1;
+    }
+
+    //printf("STEP 7 = OUTPUT\n");
+
     return 0;
 }

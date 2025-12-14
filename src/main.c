@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
         printf("  Using cleaned image for further processing\n");
     } 
     else if (fabs(correction_angle) < 2.0) {
-        printf("\n⚠ Minor tilt detected (%.2f°)\n", correction_angle);
+        printf("\n Minor tilt detected (%.2f°)\n", correction_angle);
         printf("  Rotation is optional. Using cleaned image.\n");
         rotation_buffer = bw_visual;
     } 
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
         // Save the corrected image
         char corrected_filename[256];
         snprintf(corrected_filename, sizeof(corrected_filename),
-                 "data/images/02_corrected_final.png", correction_angle);
+                 "data/images/treated_image.png");
         stbi_write_png(corrected_filename, width, height, 1, rotation_buffer, width);
         printf("  ✓ Saved corrected image: %s\n", corrected_filename);
     }

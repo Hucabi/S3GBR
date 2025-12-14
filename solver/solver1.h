@@ -6,4 +6,6 @@ int* solver(char* file, char* word);
 
 short search(int dir, int* coords, int* dim, char** grid, char* word, int len);
 
+int runSolver(char* grid, char* wordlist);
+
 #endif

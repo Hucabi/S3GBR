@@ -157,17 +157,15 @@ int* solver(char* file, char* word)
 }
 
 
-int main(int argc, char* argv[])
+int runSolver(char* grid, char* wordlist)
 {
-	if(argc != 3)
-	{
-		printf("incorrect input");
-		return 0;
-	}
-
+    if(grid == NULL || wordlist == NULL) {
+        printf("ERROR : Grid or Wordlist NULL"); 
+        return 1;
+    }
 	int dimWord = 0; // nb of words
 
-    FILE* fpWord = fopen(argv[2], "r");
+    FILE* fpWord = fopen(wordlist, "r");
 	if(fpWord == NULL) printf("fopen error");
 	
 	dimWord = count_lines(fpWord);
@@ -191,7 +189,7 @@ int main(int argc, char* argv[])
 
 	for(int i = 0; i < dimWord; i++)
 	{
-		coords[i] = solver(argv[1], listWord[i]);
+		coords[i] = solver(grid, listWord[i]);
 	}
 
 	FILE *coordsFile = fopen("coords.txt", "w");
@@ -208,5 +206,5 @@ int main(int argc, char* argv[])
             free(coords[i]);
         free(coords);
 
-        return 0;
+    return 0;
 }
