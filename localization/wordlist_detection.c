@@ -1,97 +1,67 @@
-// wordlist_detection.c - IMPROVED VERSION with better detection
 #include "localization.h"
 #include <string.h>
 
-// Helper: Check if a region contains text
-static int region_has_text(gdImagePtr img, BoundingBox region, int threshold) {
-    int black_pixels = 0;
-    int total_pixels = 0;
+// --- Text Check ---
+static int region_has_wordlist(gdImagePtr img, BoundingBox region) {
+    int width = gdImageSX(img);
+    int height = gdImageSY(img);
     
-    // Sample the region
-    int step_x = (region.width > 10) ? region.width / 10 : 1;
-    int step_y = (region.height > 10) ? region.height / 10 : 1;
+    if (region.x < 0) region.x = 0;
+    if (region.y < 0) region.y = 0;
+    if (region.x + region.width > width) region.width = width - region.x;
+    if (region.y + region.height > height) region.height = height - region.y;
+
+    if (region.width < 10 || region.height < 10) return 0;
+
+    long black_pixels = 0;
+    long total_pixels = (long)region.width * region.height;
     
-    for (int y = region.y; y < region.y + region.height; y += step_y) {
-        for (int x = region.x; x < region.x + region.width; x += step_x) {
-            if (x >= 0 && x < gdImageSX(img) && y >= 0 && y < gdImageSY(img)) {
-                total_pixels++;
-                int pixel = gdImageGetPixel(img, x, y);
-                if (pixel == 0) {
-                    black_pixels++;
-                }
-            }
+    for (int y = region.y; y < region.y + region.height; y += 2) {
+        for (int x = region.x; x < region.x + region.width; x += 2) {
+            if (gdImageGetPixel(img, x, y) == 0) black_pixels++;
         }
     }
-    
-    if (total_pixels == 0) return 0;
-    
-    int percentage = (black_pixels * 100) / total_pixels;
-    return percentage > threshold;
+    black_pixels *= 4; 
+
+    float density = (float)black_pixels / total_pixels;
+    if (density < 0.005) return 0;
+
+    return 1;
 }
 
-// Helper: Find exact text boundaries in a region
-static BoundingBox find_text_boundaries(gdImagePtr img, BoundingBox region) {
-    BoundingBox text = region;
-    int img_width = gdImageSX(img);
-    int img_height = gdImageSY(img);
+// --- Corrected Shrink Wrap (Full Scan) ---
+// Scans entire region for bounds, ignoring internal gaps.
+// This FIXES the Level 2 issue where the word list was cut in half.
+static BoundingBox shrink_wrap_content(gdImagePtr img, BoundingBox region) {
+    BoundingBox final = region;
+    int width = gdImageSX(img);
+    int height = gdImageSY(img);
     
-    // Find top boundary
-    for (int y = region.y; y < region.y + region.height && y < img_height; y++) {
-        int row_black = 0;
-        for (int x = region.x; x < region.x + region.width && x < img_width; x++) {
-            if (gdImageGetPixel(img, x, y) == 0) {
-                row_black++;
+    int min_x = width, max_x = 0;
+    int min_y = height, max_y = 0;
+    int found_pixel = 0;
+
+    // Scan EVERY pixel in the region to find extreme bounds
+    for (int y = region.y; y < region.y + region.height; y++) {
+        for (int x = region.x; x < region.x + region.width; x++) {
+            if (x < width && y < height && gdImageGetPixel(img, x, y) == 0) {
+                if (x < min_x) min_x = x;
+                if (x > max_x) max_x = x;
+                if (y < min_y) min_y = y;
+                if (y > max_y) max_y = y;
+                found_pixel = 1;
             }
-        }
-        if (row_black > 3) {
-            text.y = y;
-            break;
         }
     }
     
-    // Find bottom boundary
-    for (int y = region.y + region.height - 1; y >= region.y && y >= 0; y--) {
-        int row_black = 0;
-        for (int x = region.x; x < region.x + region.width && x < img_width; x++) {
-            if (gdImageGetPixel(img, x, y) == 0) {
-                row_black++;
-            }
-        }
-        if (row_black > 3) {
-            text.height = y - text.y + 1;
-            break;
-        }
-    }
+    if (!found_pixel) return (BoundingBox){0,0,0,0};
+
+    final.x = min_x;
+    final.y = min_y;
+    final.width = max_x - min_x + 1;
+    final.height = max_y - min_y + 1;
     
-    // Find left boundary
-    for (int x = region.x; x < region.x + region.width && x < img_width; x++) {
-        int col_black = 0;
-        for (int y = text.y; y < text.y + text.height && y < img_height; y++) {
-            if (gdImageGetPixel(img, x, y) == 0) {
-                col_black++;
-            }
-        }
-        if (col_black > 3) {
-            text.x = x;
-            break;
-        }
-    }
-    
-    // Find right boundary
-    for (int x = region.x + region.width - 1; x >= region.x && x >= 0; x--) {
-        int col_black = 0;
-        for (int y = text.y; y < text.y + text.height && y < img_height; y++) {
-            if (gdImageGetPixel(img, x, y) == 0) {
-                col_black++;
-            }
-        }
-        if (col_black > 3) {
-            text.width = x - text.x + 1;
-            break;
-        }
-    }
-    
-    return text;
+    return final;
 }
 
 BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid) {
@@ -99,98 +69,50 @@ BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid) {
     int height = gdImageSY(img);
     
     printf("Searching for wordlist around grid...\n");
-    printf("  Image: %dx%d, Grid: (%d,%d) %dx%d\n", 
-           width, height, grid.x, grid.y, grid.width, grid.height);
     
-    // Define regions around the grid
     BoundingBox regions[4];
-    int margin = 10; // Small margin to avoid grid borders
+    regions[0] = (BoundingBox){0, 0, grid.x, height}; // Left
+    regions[1] = (BoundingBox){grid.x + grid.width, 0, width - (grid.x + grid.width), height}; // Right
+    regions[2] = (BoundingBox){0, grid.y + grid.height, width, height - (grid.y + grid.height)}; // Bottom
+    regions[3] = (BoundingBox){0, 0, width, grid.y}; // Top
     
-    // Left region - MOST COMMON for wordlists
-    regions[0].x = 0;
-    regions[0].y = (grid.y > margin) ? grid.y - margin : 0;
-    regions[0].width = (grid.x > margin) ? grid.x - margin : 0;
-    regions[0].height = grid.height + 2 * margin;
-    if (regions[0].height + regions[0].y > height) {
-        regions[0].height = height - regions[0].y;
-    }
+    const char* names[] = {"LEFT", "RIGHT", "BOTTOM", "TOP"};
+    // Bias against Top (fixes Level 3 Header selection)
+    float weights[] = {1.0f, 1.2f, 1.2f, 0.05f}; 
     
-    // Right region
-    regions[1].x = grid.x + grid.width + margin;
-    regions[1].y = (grid.y > margin) ? grid.y - margin : 0;
-    regions[1].width = (regions[1].x < width) ? width - regions[1].x : 0;
-    regions[1].height = grid.height + 2 * margin;
-    if (regions[1].height + regions[1].y > height) {
-        regions[1].height = height - regions[1].y;
-    }
-    
-    // Top region
-    regions[2].x = (grid.x > margin) ? grid.x - margin : 0;
-    regions[2].y = 0;
-    regions[2].width = grid.width + 2 * margin;
-    if (regions[2].width + regions[2].x > width) {
-        regions[2].width = width - regions[2].x;
-    }
-    regions[2].height = (grid.y > margin) ? grid.y - margin : 0;
-    
-    // Bottom region
-    regions[3].x = (grid.x > margin) ? grid.x - margin : 0;
-    regions[3].y = grid.y + grid.height + margin;
-    regions[3].width = grid.width + 2 * margin;
-    if (regions[3].width + regions[3].x > width) {
-        regions[3].width = width - regions[3].x;
-    }
-    regions[3].height = (regions[3].y < height) ? height - regions[3].y : 0;
-    
-    const char* region_names[] = {"LEFT", "RIGHT", "TOP", "BOTTOM"};
-    
-    // Check each region for text
-    BoundingBox best_region = {0, 0, 0, 0};
-    int best_text_score = 0;
-    int best_idx = -1;
+    BoundingBox best_region = {0,0,0,0};
+    float best_score = 0;
     
     for (int i = 0; i < 4; i++) {
-        printf("  Checking %s region: (%d,%d) %dx%d... ", 
-               region_names[i], regions[i].x, regions[i].y, 
-               regions[i].width, regions[i].height);
+        if(regions[i].width < 20 || regions[i].height < 20) continue;
         
-        if (regions[i].width > 20 && regions[i].height > 20) {
-            if (region_has_text(img, regions[i], 3)) { // Lower threshold to 3%
-                printf("TEXT FOUND! ");
+        if (region_has_wordlist(img, regions[i])) {
+            BoundingBox tight = shrink_wrap_content(img, regions[i]);
+            
+            // Re-check valid dimensions
+            if (tight.width > 0 && tight.height > 0) {
+                int area = tight.width * tight.height;
+                float weighted_score = area * weights[i];
                 
-                // Find exact boundaries
-                BoundingBox text_region = find_text_boundaries(img, regions[i]);
+                printf("  %s region: Found. Area=%d, Score=%.0f\n", names[i], area, weighted_score);
                 
-                // Score based on size and aspect ratio
-                int score = text_region.width * text_region.height;
-                
-                // Prefer regions that are distinctly vertical (wordlists are usually vertical)
-                float aspect = (float)text_region.width / text_region.height;
-                if (aspect < 0.5) { // Tall and narrow (vertical list)
-                    score *= 3;
-                } else if (aspect > 2.0) { // Wide and short (horizontal list)
-                    score *= 2;
+                if (weighted_score > best_score) {
+                    best_score = weighted_score;
+                    best_region = tight;
                 }
-                
-                printf("Score=%d (aspect=%.2f)\n", score, aspect);
-                
-                if (score > best_text_score) {
-                    best_text_score = score;
-                    best_region = text_region;
-                    best_idx = i;
-                }
-            } else {
-                printf("no text\n");
             }
-        } else {
-            printf("too small\n");
         }
     }
     
-    if (best_idx >= 0) {
-        printf("  Best match: %s region with score %d\n", 
-               region_names[best_idx], best_text_score);
-    }
+    // Padding
+    int pad = 5;
+    best_region.x = (best_region.x > pad) ? best_region.x - pad : 0;
+    best_region.y = (best_region.y > pad) ? best_region.y - pad : 0;
+    best_region.width += pad * 2;
+    best_region.height += pad * 2;
+    
+    if (best_region.x + best_region.width > width) best_region.width = width - best_region.x;
+    if (best_region.y + best_region.height > height) best_region.height = height - best_region.y;
     
     return best_region;
 }

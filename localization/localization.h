@@ -1,77 +1,41 @@
-// localization.h - CORRECTED VERSION (no center_letter in public API)
 #ifndef LOCALIZATION_H
 #define LOCALIZATION_H
 
 #include <gd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-// Constants for output format
-#define CELL_SIZE 32     // 32x32 pixels for grid cells
-#define WORDLIST_SIZE 28 // 28x28 pixels for wordlist letters
-#define GRID_OUTPUT_DIR "../data/grid/cells"
-#define WORDLIST_OUTPUT_DIR "../data/wordlist/cells"
-
-// Core data structures
+// --- Structs ---
 typedef struct {
-    int x;
-    int y;
-    int width;
-    int height;
+    int x, y;
+    int width, height;
 } BoundingBox;
 
-typedef struct {
-    BoundingBox bbox;
-    gdImagePtr letter_img;
-    char predicted_char;
-    int row;
-    int col;
-} LetterData;
-
-typedef struct {
-    BoundingBox grid_bbox;
-    BoundingBox wordlist_bbox;
-    int grid_rows;
-    int grid_cols;
-    LetterData** grid_letters;
-    LetterData** wordlist_letters;
-    int num_words;
-} ExtractionResult;
-
-// ========== PROJECTION FUNCTIONS ==========
-int* compute_horizontal_projection(gdImagePtr img);
+// --- Projection Utils (projection.c) ---
 int* compute_vertical_projection(gdImagePtr img);
-int* compute_horizontal_projection_within(gdImagePtr img, BoundingBox region);
-int* compute_vertical_projection_within(gdImagePtr img, BoundingBox region);
-int* find_peaks(int* projection, int length, int min_height, int min_distance, int* num_peaks);
-int* find_valleys(int* projection, int length, int max_height, int min_distance, int* num_valleys);
+int* compute_horizontal_projection(gdImagePtr img);
+// Helper for finding grid in specific area
+int* compute_vertical_projection_within(gdImagePtr img, BoundingBox area);
+int* compute_horizontal_projection_within(gdImagePtr img, BoundingBox area);
 
-// ========== GRID DETECTION FUNCTIONS ==========
+// --- Grid Detection (grid_detection.c) ---
 BoundingBox find_grid_by_projection(gdImagePtr img);
+// Legacy fallback signature
 BoundingBox find_grid_by_text_clustering(gdImagePtr img);
 void flood_fill(gdImagePtr img, int x, int y, BoundingBox* bbox, int** visited);
 
-// ========== GRID LETTER EXTRACTION FUNCTIONS ==========
-LetterData** extract_grid_letters(gdImagePtr img, BoundingBox grid, 
-                                 int* num_rows, int* num_cols);
+// --- Grid Extraction (letter_extraction.c) ---
+// UPDATED: Now returns void because it saves directly to disk
+void extract_grid_letters(gdImagePtr img, BoundingBox grid_box);
 
-// ========== WORD LIST DETECTION FUNCTIONS ==========
+// --- Wordlist Detection (wordlist_detection.c) ---
 BoundingBox find_wordlist_region(gdImagePtr img, BoundingBox grid);
 
-// ========== WORDLIST LETTER EXTRACTION FUNCTIONS ==========
-LetterData** extract_wordlist_letters(gdImagePtr img, BoundingBox wordlist, 
-                                     int* num_words, int** letters_per_word);
-void save_wordlist_letters(LetterData** letters, int num_words, 
-                          int* letters_per_word, const char* output_dir);
+// --- Wordlist Extraction (wordlist_extraction.c) ---
+// UPDATED: Now returns void because it saves directly to disk
+void extract_wordlist_letters(gdImagePtr img, BoundingBox box);
 
-// ========== IMAGE PROCESSING FUNCTIONS ==========
-gdImagePtr resize_and_binarize(gdImagePtr src, int target_size);
-void save_cell_as_jpg(gdImagePtr cell, const char* filename, int target_size);
-
-// ========== MAIN FUNCTIONS ==========
-ExtractionResult* localize_and_extract(gdImagePtr binarized_img);
-void free_extraction_result(ExtractionResult* result);
-void save_debug_images(ExtractionResult* result, const char* base_name);
+// --- Debugging ---
+void save_debug_image(gdImagePtr img, char* filename, BoundingBox grid, BoundingBox wordlist);
 
 #endif

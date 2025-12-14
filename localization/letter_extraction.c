@@ -1,306 +1,171 @@
-// letter_extraction.c - ROBUST VERSION with better border detection
-#include "localization.h"
-#include <string.h>
-#include <stdio.h>
+﻿#include "localization.h"
+#include <sys/stat.h>
+#include <sys/types.h>
 
-// Center a letter in its cell (remove excess whitespace)
-static gdImagePtr center_letter(gdImagePtr cell_img) {
-    int width = cell_img->sx;
-    int height = cell_img->sy;
+// --- Helper: Standardize to 28x28 (MNIST style) ---
+static void save_28x28_normalized(gdImagePtr src, int x, int y, int w, int h, const char* filename) {
+    // 1. Create 28x28 Canvas
+    gdImagePtr dest = gdImageCreateTrueColor(28, 28);
+    int white = gdImageColorAllocate(dest, 255, 255, 255);
+    gdImageFilledRectangle(dest, 0, 0, 27, 27, white);
+
+    // 2. Calculate Scaling (Fit to 20x20 box inside 28x28)
+    int target_dim = 20;
+    int new_w, new_h;
     
-    // STEP 1: Clean bounding box detection with noise filtering
-    int min_x = width, max_x = 0, min_y = height, max_y = 0;
-    int pixel_count = 0;
-    
-    // Find tight bounding box of black pixels
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            if (gdImageGetPixel(cell_img, x, y) == 0) {
-                pixel_count++;
-                if (x < min_x) min_x = x;
-                if (x > max_x) max_x = x;
-                if (y < min_y) min_y = y;
-                if (y > max_y) max_y = y;
-            }
-        }
+    if (w > h) {
+        new_w = target_dim;
+        new_h = (int)((float)h / w * target_dim);
+    } else {
+        new_h = target_dim;
+        new_w = (int)((float)w / h * target_dim);
     }
     
-    // If no black pixels or too few (noise), return white image
-    if (pixel_count < 5) {
-        gdImagePtr centered = gdImageCreate(32, 32);
-        int white = gdImageColorAllocate(centered, 255, 255, 255);
-        gdImageFilledRectangle(centered, 0, 0, 31, 31, white);
-        return centered;
+    // Safety check to prevent 0 dimensions
+    if (new_w < 1) new_w = 1;
+    if (new_h < 1) new_h = 1;
+
+    // 3. Center it
+    int dest_x = (28 - new_w) / 2;
+    int dest_y = (28 - new_h) / 2;
+
+    // 4. Copy and Resize
+    gdImageCopyResampled(dest, src, dest_x, dest_y, x, y, new_w, new_h, w, h);
+
+    // 5. Save
+    FILE* out = fopen(filename, "wb");
+    if (out) {
+        gdImagePng(dest, out);
+        fclose(out);
     }
-    
-    // Add small padding (10% of dimension)
-    int bbox_width = max_x - min_x + 1;
-    int bbox_height = max_y - min_y + 1;
-    int padding_x = bbox_width / 10;
-    int padding_y = bbox_height / 10;
-    
-    min_x = (min_x > padding_x) ? min_x - padding_x : 0;
-    max_x = (max_x + padding_x < width) ? max_x + padding_x : width - 1;
-    min_y = (min_y > padding_y) ? min_y - padding_y : 0;
-    max_y = (max_y + padding_y < height) ? max_y + padding_y : height - 1;
-    
-    bbox_width = max_x - min_x + 1;
-    bbox_height = max_y - min_y + 1;
-    
-    // STEP 2: Calculate scaling while preserving aspect ratio
-    float scale_x = 32.0f / bbox_width;
-    float scale_y = 32.0f / bbox_height;
-    float scale = (scale_x < scale_y) ? scale_x : scale_y; // Use smaller scale
-    
-    int scaled_width = (int)(bbox_width * scale);
-    int scaled_height = (int)(bbox_height * scale);
-    
-    // STEP 3: Create centered image with proper positioning
-    gdImagePtr centered = gdImageCreate(32, 32);
-    int white = gdImageColorAllocate(centered, 255, 255, 255);
-    int black = gdImageColorAllocate(centered, 0, 0, 0);
-    gdImageFilledRectangle(centered, 0, 0, 31, 31, white);
-    
-    // Calculate centering offsets
-    int offset_x = (32 - scaled_width) / 2;
-    int offset_y = (32 - scaled_height) / 2;
-    
-    // STEP 4: Scale and copy with simple nearest-neighbor
-    for (int y = 0; y < scaled_height; y++) {
-        for (int x = 0; x < scaled_width; x++) {
-            int src_x = min_x + (int)(x / scale);
-            int src_y = min_y + (int)(y / scale);
-            
-            if (src_x < width && src_y < height) {
-                int pixel = gdImageGetPixel(cell_img, src_x, src_y);
-                if (pixel == 0) { // Black pixel
-                    gdImageSetPixel(centered, offset_x + x, offset_y + y, black);
-                }
-            }
-        }
-    }
-    
-    return centered;
+    gdImageDestroy(dest);
 }
 
-// Helper: Find continuous border regions
-static int* find_border_lines(int* projection, int length, int threshold, 
-                              int min_gap, int* num_borders) {
-    int* borders = (int*)malloc(length * sizeof(int));
-    int count = 0;
-    int in_border = 0;
-    int border_start = 0;
+// --- Helper: Clean lines for analysis ---
+static gdImagePtr create_clean_grid_copy(gdImagePtr src) {
+    int w = gdImageSX(src);
+    int h = gdImageSY(src);
+    gdImagePtr clean = gdImageCreate(w, h);
+    gdImageCopy(clean, src, 0, 0, 0, 0, w, h);
+    int white = gdImageColorResolve(clean, 255, 255, 255);
+    int black = gdImageColorResolve(clean, 0, 0, 0);
+
+    for (int y = 0; y < h; y++) {
+        int run = 0;
+        for (int x = 0; x < w; x++) {
+            if (gdImageGetPixel(clean, x, y) == black) run++;
+            else run = 0;
+            if (run > w * 0.5) { gdImageLine(clean, x-run, y, w, y, white); break; }
+        }
+    }
+    for (int x = 0; x < w; x++) {
+        int run = 0;
+        for (int y = 0; y < h; y++) {
+            if (gdImageGetPixel(clean, x, y) == black) run++;
+            else run = 0;
+            if (run > h * 0.5) { gdImageLine(clean, x, y-run, x, h, white); break; }
+        }
+    }
+    return clean;
+}
+
+// --- Extraction Logic ---
+void extract_grid_letters(gdImagePtr img, BoundingBox grid_box) {
+    printf("[Extraction] Analyzing Grid Structure...\n");
+
+    gdImagePtr grid_img = gdImageCreate(grid_box.width, grid_box.height);
+    gdImageCopy(grid_img, img, 0, 0, grid_box.x, grid_box.y, grid_box.width, grid_box.height);
+
+    gdImagePtr clean_img = create_clean_grid_copy(grid_img);
+    int w = gdImageSX(clean_img);
+    int h = gdImageSY(clean_img);
+    int black = gdImageColorResolve(grid_img, 0, 0, 0);
+
+    // Horizontal Projection
+    int* h_proj = (int*)calloc(h, sizeof(int));
+    for (int y = 0; y < h; y++) 
+        for (int x = 0; x < w; x++) 
+            if (gdImageGetPixel(clean_img, x, y) == black) h_proj[y]++;
+
+    int* row_cuts = malloc(sizeof(int) * h);
+    int num_rows = 0;
+    int in_gap = 1;
+    row_cuts[num_rows++] = 0;
+    int gap_thresh = 5; 
     
-    for (int i = 0; i < length; i++) {
-        if (projection[i] > threshold) {
-            if (!in_border) {
-                border_start = i;
-                in_border = 1;
+    for (int y = 0; y < h; y++) {
+        if (h_proj[y] <= gap_thresh) { 
+            if (!in_gap) in_gap = 1;
+        } else { 
+            if (in_gap) {
+                if (y > row_cuts[num_rows-1] + 5) row_cuts[num_rows++] = y - 2; 
+                in_gap = 0;
             }
+        }
+    }
+    row_cuts[num_rows++] = h; 
+
+    // Vertical Projection
+    int* v_proj = (int*)calloc(w, sizeof(int));
+    for (int x = 0; x < w; x++) 
+        for (int y = 0; y < h; y++) 
+            if (gdImageGetPixel(clean_img, x, y) == black) v_proj[x]++;
+
+    int* col_cuts = malloc(sizeof(int) * w);
+    int num_cols = 0;
+    in_gap = 1;
+    col_cuts[num_cols++] = 0;
+
+    for (int x = 0; x < w; x++) {
+        if (v_proj[x] <= gap_thresh) { 
+            if (!in_gap) in_gap = 1;
         } else {
-            if (in_border) {
-                // End of border region - store the middle
-                int border_middle = (border_start + i - 1) / 2;
-                
-                // Only add if far enough from previous border
-                if (count == 0 || border_middle - borders[count - 1] > min_gap) {
-                    borders[count++] = border_middle;
-                }
-                in_border = 0;
+            if (in_gap) {
+                if (x > col_cuts[num_cols-1] + 5) col_cuts[num_cols++] = x - 2; 
+                in_gap = 0;
             }
         }
     }
-    
-    // Handle border at end
-    if (in_border) {
-        int border_middle = (border_start + length - 1) / 2;
-        if (count == 0 || border_middle - borders[count - 1] > min_gap) {
-            borders[count++] = border_middle;
-        }
-    }
-    
-    *num_borders = count;
-    return borders;
-}
+    col_cuts[num_cols++] = w;
 
-// New function for resizing and binarizing to target size
-gdImagePtr resize_and_binarize(gdImagePtr src, int target_size) {
-    gdImagePtr dst = gdImageCreate(target_size, target_size);
-    
-    // Fill with white
-    int white = gdImageColorAllocate(dst, 255, 255, 255);
-    gdImageFill(dst, 0, 0, white);
-    
-    // Resize
-    double scale_x = (double)target_size / gdImageSX(src);
-    double scale_y = (double)target_size / gdImageSY(src);
-    
-    for (int y = 0; y < target_size; y++) {
-        for (int x = 0; x < target_size; x++) {
-            int src_x = (int)(x / scale_x);
-            int src_y = (int)(y / scale_y);
-            
-            if (src_x >= 0 && src_x < gdImageSX(src) && 
-                src_y >= 0 && src_y < gdImageSY(src)) {
-                int color = gdImageGetPixel(src, src_x, src_y);
-                
-                // Convert to black if pixel is dark enough
-                if (gdImageTrueColor(src)) {
-                    int r = gdImageRed(src, color);
-                    int g = gdImageGreen(src, color);
-                    int b = gdImageBlue(src, color);
-                    
-                    if (r < 128 && g < 128 && b < 128) {
-                        gdImageSetPixel(dst, x, y, 0); // Black
-                    }
-                } else {
-                    // Palette image
-                    if (color == 0) { // Assuming 0 is black
-                        gdImageSetPixel(dst, x, y, 0);
-                    }
-                }
-            }
-        }
-    }
-    
-    // Convert to palette with only black and white
-    gdImageTrueColorToPalette(dst, 1, 2);
-    
-    return dst;
-}
+    printf("  > Detected %d rows, %d col separators\n", num_rows-1, num_cols-1);
 
-// Extract letters from GRID with IMPROVED border detection
-LetterData** extract_grid_letters(gdImagePtr img, BoundingBox grid, 
-                                 int* num_rows, int* num_cols) {
-    printf("Extracting letters from grid (%dx%d)...\n", grid.width, grid.height);
-    
-    // 1. Compute projections within grid region
-    int* h_proj = compute_horizontal_projection_within(img, grid);
-    int* v_proj = compute_vertical_projection_within(img, grid);
-    
-    // 2. Adaptive thresholding for border detection
-    // Borders should be VERY dark (high projection values)
-    int h_border_threshold = grid.width * 0.7;  // 70% of width (increased from 50%)
-    int v_border_threshold = grid.height * 0.7; // 70% of height
-    
-    // Estimate cell size to set minimum gap between borders
-    int estimated_cell_height = grid.height / 15; // Assume 5-20 rows
-    int estimated_cell_width = grid.width / 15;   // Assume 5-20 cols
-    
-    // Find continuous border lines
-    int border_count_h, border_count_v;
-    int* row_borders = find_border_lines(h_proj, grid.height, h_border_threshold, 
-                                        estimated_cell_height / 2, &border_count_h);
-    int* col_borders = find_border_lines(v_proj, grid.width, v_border_threshold, 
-                                        estimated_cell_width / 2, &border_count_v);
-    
-    // Grid size = borders - 1
-    *num_rows = border_count_h - 1;
-    *num_cols = border_count_v - 1;
-    
-    printf("Detected %d row borders, %d col borders\n", border_count_h, border_count_v);
-    printf("Grid size: %d rows x %d columns\n", *num_rows, *num_cols);
-    
-    // Sanity check: grid should be reasonable size
-    if (*num_rows < 3 || *num_rows > 30 || *num_cols < 3 || *num_cols > 30) {
-        printf("ERROR: Unrealistic grid size detected! Aborting.\n");
-        free(h_proj);
-        free(v_proj);
-        free(row_borders);
-        free(col_borders);
-        *num_rows = 0;
-        *num_cols = 0;
-        return NULL;
-    }
-    
-    // 4. Allocate 2D array for letters
-    LetterData** letters = (LetterData**)malloc(*num_rows * sizeof(LetterData*));
-    for (int i = 0; i < *num_rows; i++) {
-        letters[i] = (LetterData*)malloc(*num_cols * sizeof(LetterData));
-    }
-    
-    // 5. Extract each cell
-    for (int row = 0; row < *num_rows; row++) {
-        int cell_top = grid.y + row_borders[row] + 2;
-        int cell_bottom = grid.y + row_borders[row + 1] - 2;
-        
-        for (int col = 0; col < *num_cols; col++) {
-            int cell_left = grid.x + col_borders[col] + 2;
-            int cell_right = grid.x + col_borders[col + 1] - 2;
+    // Extract Cells
+    mkdir("../data/grid/cells", 0777);
+    int cell_count = 0;
+
+    for (int r = 1; r < num_rows; r++) {
+        for (int c = 1; c < num_cols; c++) {
+            int y1 = row_cuts[r-1];
+            int y2 = row_cuts[r];
+            int x1 = col_cuts[c-1];
+            int x2 = col_cuts[c];
             
-            int cell_width = cell_right - cell_left + 1;
-            int cell_height = cell_bottom - cell_top + 1;
+            int cell_w = x2 - x1;
+            int cell_h = y2 - y1;
             
-            // Safety check
-            if (cell_width <= 0 || cell_height <= 0) {
-                printf("WARNING: Invalid cell at [%d,%d]\n", row, col);
-                continue;
+            int ink = 0;
+            for(int cx=0; cx<cell_w; cx++)
+                for(int cy=0; cy<cell_h; cy++)
+                    if(gdImageGetPixel(grid_img, x1+cx, y1+cy) == black) ink++;
+
+            if (cell_w > 5 && cell_h > 5 && ink > 10) {
+                char filename[64];
+                sprintf(filename, "../data/grid/cells/cell_%d_%d.png", r-1, c-1);
+                
+                // USE NEW 28x28 FUNCTION
+                save_28x28_normalized(grid_img, x1, y1, cell_w, cell_h, filename);
+                cell_count++;
             }
-            
-            // Extract raw cell image
-            gdImagePtr cell_img = gdImageCreate(cell_width, cell_height);
-            for (int y = 0; y < cell_height; y++) {
-                for (int x = 0; x < cell_width; x++) {
-                    int color = gdImageGetPixel(img, cell_left + x, cell_top + y);
-                    gdImageSetPixel(cell_img, x, y, color);
-                }
-            }
-            
-            // Center and normalize the letter
-            gdImagePtr centered_img = center_letter(cell_img);
-            gdImageDestroy(cell_img);
-            
-            // Store in structure
-            letters[row][col].bbox.x = cell_left;
-            letters[row][col].bbox.y = cell_top;
-            letters[row][col].bbox.width = cell_width;
-            letters[row][col].bbox.height = cell_height;
-            letters[row][col].letter_img = centered_img;
-            letters[row][col].row = row;
-            letters[row][col].col = col;
-            letters[row][col].predicted_char = '?';
         }
     }
-    
-    // Cleanup
+
+    printf("✓ Saved %d grid letters to ../data/grid/cells/\n", cell_count);
+
     free(h_proj);
     free(v_proj);
-    free(row_borders);
-    free(col_borders);
-    
-    printf("Extracted %d letters total\n", (*num_rows) * (*num_cols));
-    
-    return letters;
-}
-
-// Helper function to save a cell as JPEG
-void save_cell_as_jpg(gdImagePtr cell, const char* filename, int target_size) {
-    FILE* out = fopen(filename, "wb");
-    if (!out) {
-        perror("Failed to open file for writing");
-        return;
-    }
-    
-    // Resize to target size if needed
-    gdImagePtr resized = cell;
-    if (gdImageSX(cell) != target_size || gdImageSY(cell) != target_size) {
-        resized = resize_and_binarize(cell, target_size);
-    } else {
-        // Create a copy to avoid modifying original
-        resized = gdImageCreate(target_size, target_size);
-        gdImageCopy(resized, cell, 0, 0, 0, 0, target_size, target_size);
-    }
-    
-    // Ensure it's binarized (black & white palette)
-    gdImageTrueColorToPalette(resized, 1, 2);
-    
-    // Save as JPEG
-    gdImageJpeg(resized, out, 95); // 95% quality
-    
-    fclose(out);
-    
-    // Clean up if we created a resized copy
-    if (resized != cell) {
-        gdImageDestroy(resized);
-    }
+    free(row_cuts);
+    free(col_cuts);
+    gdImageDestroy(clean_img);
+    gdImageDestroy(grid_img);
 }
