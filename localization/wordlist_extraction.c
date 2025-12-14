@@ -224,7 +224,7 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
             qsort(blobs, b_count, sizeof(Blob), compare_x);
 
             char w_dir[256];
-            sprintf(w_dir, "../data/wordlist/cells/word_%d", word_count++);
+            sprintf(w_dir, "data/wordlist/cells/word_%d", word_count++);
             mkdir(w_dir, 0777);
             
             int l_idx = 0;

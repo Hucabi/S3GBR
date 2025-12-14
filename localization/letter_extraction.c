@@ -130,7 +130,9 @@ void find_blob(gdImagePtr img, int x, int y, int* visited, int w, int h,
 
 void extract_grid_letters(gdImagePtr img, BoundingBox grid_box) {
     printf("Extraction...\n");
-    mkdir("../data/grid/cells", 0777);
+    mkdir("data", 0777);
+    mkdir("data/grid", 0777);
+    mkdir("data/grid/cells", 0777);
 
     gdImagePtr grid_img = gdImageCreate(grid_box.width, grid_box.height);
     gdImageCopy(grid_img, img, 0, 0,
@@ -165,7 +167,7 @@ void extract_grid_letters(gdImagePtr img, BoundingBox grid_box) {
 
     for(int i=0; i<blob_count; i++) {
         char fname[64];
-        sprintf(fname, "../data/grid/cells/cell_%d.png", i);
+        sprintf(fname, "data/grid/cells/cell_%d.png", i);
         save_for_cnn(clean,
 			blobs[i].x, blobs[i].y, blobs[i].w, blobs[i].h, fname);
     }

@@ -2,9 +2,9 @@
 # Repository of the project of the S3GBR group of EPITA students.
 # To use the program  :
 # Put you input images in the folder data/input/
-# Compile the program with the command 'make all' at the root
-# Execute the compiled program with './wordsearch_solver input_image.jpg'
-#                    with input_image.jpg the name of you image
+# Compile the pretreatment program with the command 'make all' at the root
+# Execute the compiled program with './wordsearch_solver input_image.png'
+#                    with input_image.png the name of you image
 #
 # You can delete the executable and all the ouput files with 'make clean'
 #

@@ -38,7 +38,7 @@ $(TRAIN_BIN): $(OCR_COMMON_OBJS) $(OCR_TRAIN_OBJS)
 clean:
 	rm -f *.o $(SOLVER_BIN) $(TRAIN_BIN)
 	rm -f grid.txt words.txt
-	rm -rf ../data/grid/cells/*
-	rm -rf ../data/wordlist/cells/*
-	rm -f localization_debug.png
+	rm -rf data/grid/cells/*
+	rm -rf data/wordlist/cells/*
+	rm -f localization/localization_debug.png
 .PHONY: all clean

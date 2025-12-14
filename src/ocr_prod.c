@@ -14,7 +14,7 @@
 #endif
 
 
-static const char *WEIGHTS_PATH = "ocr_weights.bin";
+static const char *WEIGHTS_PATH = "src/ocr_weights.bin";
 
 static const char *GRID_DIR     = "data/grid/cells";
 static const char *WORDS_ROOT   = "data/wordlist/cells";
