@@ -13,22 +13,26 @@ Dataset load_full_dataset(const char *root_dir, int max_per_class)
     ds.Y = (int*)malloc(sizeof(int) * capacity);
     ds.N = 0;
 
-    if (!ds.X || !ds.Y) {
+    if (!ds.X || !ds.Y) 
+    {
         fprintf(stderr, "Dataset allocation failed\n");
         return ds;
     }
 
-    for (char letter = 'a'; letter <= 'z'; ++letter) {
+    for (char letter = 'a'; letter <= 'z'; ++letter) 
+    {
         char dir[256];
         snprintf(dir, sizeof(dir), "%s/%c", root_dir, letter);
 
-        for (int i = 0; i < max_per_class; ++i) {
+        for (int i = 0; i < max_per_class; ++i) 
+        {
             char path[512];
             snprintf(path, sizeof(path), "%s/%d.png", dir, i);
 
             double *vec = NULL;
-            if (!load_image_for_training(path, &vec)) {
-                continue; // image absente ou invalide
+            if (!load_image_for_training(path, &vec)) 
+            {
+                continue;
             }
 
             ds.X[ds.N] = vec;

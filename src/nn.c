@@ -63,7 +63,8 @@ int argmax(const double *p, int n)
     if (!p || n <= 0) return -1;
 
     int best = 0;
-    for (int i = 1; i < n; ++i) {
+    for (int i = 1; i < n; ++i) 
+    {
         if (p[i] > p[best]) best = i;
     }
     return best;
@@ -232,7 +233,8 @@ void nn_forward_softmax(Network *net, const double *x)
     softmax(net->z2, net->n_out, net->a2);
 }
 
-double nn_train_sample(Network *net, const double *x, const double *y, double lr) 
+double nn_train_sample(Network *net,
+     const double *x, const double *y, double lr)
 {
     if (!net || !x || !y) return 0.0;
 
@@ -305,7 +307,8 @@ double nn_train_sample(Network *net, const double *x, const double *y, double lr
     return mse; /* pour XOR, n_out=1 donc c'est la MSE univariée */
 }
 
-double nn_train_sample_softmax(Network *net, const double *x, const double *y, double lr) 
+double nn_train_sample_softmax(Network *net, 
+    const double *x, const double *y, double lr) 
 {
     if (!net || !x || !y) 
         return 0.0;

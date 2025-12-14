@@ -56,10 +56,12 @@ void nn_init(Network *net, unsigned seed);
 
 void nn_forward(Network *net, const double *x);
 
-double nn_train_sample(Network *net, const double *x, const double *y, double lr);
+double nn_train_sample(Network *net, const double *x, 
+    const double *y, double lr);
 
 void nn_predict(Network *net, const double *x, double *yhat);
 
 void nn_forward_softmax(Network *net, const double *x);
 
-double nn_train_sample_softmax(Network *net, const double *x, const double *y, double lr);
+double nn_train_sample_softmax(Network *net,
+    const double *x, const double *y, double lr);
