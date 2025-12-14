@@ -3,8 +3,8 @@
 // #include "ocr_solver.h"
 
 /* Paths to images */
-#define INPUT_IMAGE   "images/input.png"
-#define ROTATED_IMAGE "images/rotated.png"
+#define INPUT_IMAGE   "data/images/input.png"
+#define ROTATED_IMAGE "data/images/02_corrected_final.png"
 #define SOLVED_IMAGE  "../ouput/output.png"
 
 /* Global image widget */
@@ -40,7 +40,6 @@ void on_solve_clicked(GtkButton *button, gpointer user_data)
 
 int main(int argc, char *argv[])
 {
-    if(argc != )
 
     GtkWidget *window;
     GtkWidget *vbox;
@@ -85,3 +84,4 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+ 
