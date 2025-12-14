@@ -159,7 +159,7 @@ void extract_grid_letters(gdImagePtr img, BoundingBox grid_box) {
 
     for(int i=0; i<blob_count; i++) {
         char fname[64];
-        sprintf(fname, "data/grid/cells/cell_%d.png", i);
+        sprintf(fname, "../data/grid/cells/cell_%d.png", i);
         save_for_cnn(clean, blobs[i].x, blobs[i].y, blobs[i].w, blobs[i].h, fname);
     }
     

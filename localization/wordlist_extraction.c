@@ -101,7 +101,7 @@ static int compare_x(const void* a, const void* b) {
 
 void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
     printf("Extraction...\n");
-    mkdir("data/wordlist/cells", 0777);
+    mkdir("..data/wordlist/cells", 0777);
 
     gdImagePtr list_img = gdImageCreate(box.width, box.height);
     gdImageCopy(list_img, img, 0, 0, box.x, box.y, box.width, box.height);
@@ -205,7 +205,7 @@ void extract_wordlist_letters(gdImagePtr img, BoundingBox box) {
             qsort(blobs, b_count, sizeof(Blob), compare_x);
 
             char w_dir[256];
-            sprintf(w_dir, "data/wordlist/cells/word_%d", word_count++);
+            sprintf(w_dir, "../data/wordlist/cells/word_%d", word_count++);
             mkdir(w_dir, 0777);
             
             int l_idx = 0;
