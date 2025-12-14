@@ -32,7 +32,7 @@ int search_err(int dir, int r_start, int c_start, int* dim, char** grid,
     for(int i = 0; i < len; i++)
     {
         if(r < 0 || r >= dim[0] || c < 0 || c >= dim[1])
-            return -1; // out of bounds
+            return -1;
 
         if(grid[r][c] != word[i])
             errors++;
@@ -58,17 +58,17 @@ int search_err(int dir, int r_start, int c_start, int* dim, char** grid,
 
 int* solver(char* file, char* word)
 {
-    int len = 0; // length of word
+    int len = 0;
     for(int i = 0; word[i] != 0; i++) len++;
 
     char* w = malloc(sizeof(char) * (len + 1));
     strcpy(w, word);
-    // convert to uppercase
+    // convert to upper
     for(int i = 0; i < len; i++)
         if(w[i] >= 'a' && w[i] <= 'z')
             w[i] = (char)(w[i] - 32);
 
-    int dim[2] = {0,0}; // rows, cols
+    int dim[2] = {0,0};
 
     // read grid
     FILE* fp = fopen(file, "r");
@@ -100,8 +100,8 @@ int* solver(char* file, char* word)
     int* coords = malloc(sizeof(int) * 4);
     for(int i = 0; i < 4; i++) coords[i] = 0;
 
-    // --- find best match ---
-    int minErrors = 3; // more than maxErrors
+    
+    int minErrors = 3;
     int bestCoords[4] = {0,0,0,0};
 
     for(int r = 0; r < dim[0]; r++)
@@ -116,8 +116,8 @@ int* solver(char* file, char* word)
                     if(err >= 0 && err < minErrors)
                     {
                         minErrors = err;
-                        bestCoords[0] = r; // start row
-                        bestCoords[1] = c; // start col
+                        bestCoords[0] = r;
+                        bestCoords[1] = c;
 
                         int dr = 0, dc = 0;
                         switch(dir)
@@ -131,8 +131,8 @@ int* solver(char* file, char* word)
                             case 6: dr = 1; dc = -1; break;
                             case 7: dr = 1; dc = 1; break;
                         }
-                        bestCoords[2] = r + dr * (len - 1); // end row
-                        bestCoords[3] = c + dc * (len - 1); // end col
+                        bestCoords[2] = r + dr * (len - 1);
+                        bestCoords[3] = c + dc * (len - 1);
                     }
                 }
             }
@@ -148,7 +148,7 @@ int* solver(char* file, char* word)
         printf("(%i,%i)(%i,%i)\n",
                coords[1], coords[0], coords[3], coords[2]);
 
-    // free grid
+    
     for(int i = 0; i < dim[0]; i++) free(grid[i]);
     free(grid);
     free(w);
@@ -167,7 +167,7 @@ int main(int argc, char* argv[])
 
 	int dimWord = 0; // nb of words
 
-  FILE* fpWord = fopen(argv[2], "r");
+    FILE* fpWord = fopen(argv[2], "r");
 	if(fpWord == NULL) printf("fopen error");
 	
 	dimWord = count_lines(fpWord);
@@ -195,21 +195,18 @@ int main(int argc, char* argv[])
 	}
 
 	FILE *coordsFile = fopen("coords.txt", "w");
-  if (coordsFile == NULL) printf("coordsFile error");
+    if (coordsFile == NULL) printf("coordsFile error");
 
-  for (int i = 0; i < dimWord; i++) {
-      fprintf(coordsFile, "%d,%d,%d,%d\n",
-        coords[i][1], coords[i][0], coords[i][3], coords[i][2]);
-  }
+    for (int i = 0; i < dimWord; i++) {
+        fprintf(coordsFile, "%d,%d,%d,%d\n",
+            coords[i][1], coords[i][0], coords[i][3], coords[i][2]);
+    }
 
-  fclose(coordsFile);
+    fclose(coordsFile);
 
+    for(int i = 0; i < dimWord; i++)
+            free(coords[i]);
+        free(coords);
 
-	// free
-  for(int i = 0; i < dimWord; i++)
-		free(coords[i]);
-	free(coords);
-
-//	solver(argv[1], argv[2]);
-	return 0;
+        return 0;
 }
