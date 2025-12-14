@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <math.h>
 
+#include "ocr_prod.h"
 #include "nn.h"
 #include "nn_io.h"
 #include "train_image_loader.h"
@@ -268,7 +269,7 @@ static int write_words_txt(Network *net)
     return 1;
 }
 
-int main(void) 
+int ocr_prod_run(void) 
 {
     Network *net = nn_create(1024, 128, 26);
     if (!net) return 1;

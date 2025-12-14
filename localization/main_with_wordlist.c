@@ -1,6 +1,8 @@
 ﻿#include "localization.h"
 #include <sys/stat.h>
 #include <sys/types.h>
+#include "../src/nn.h"
+#include "../src/ocr_prod.h"
 
 void save_debug_image(gdImagePtr img, char* filename,
 		BoundingBox grid, BoundingBox wordlist) {
@@ -98,5 +100,12 @@ int main(int argc, char** argv) {
     printf("Debug visualization:   localization_debug.png\n");
 
     gdImageDestroy(img);
+
+    printf("STEP 5 = Calling OCR\n");
+    if(ocr_prod_run() == 1) 
+    {
+        printf("Error: calling OCR failed\n");
+        return 1;
+    }
     return 0;
 }
