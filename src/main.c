@@ -1,12 +1,11 @@
+#include "rotation.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "image_loader.h"
-#include "image_utils.h"
-#include "grid_detection.h"
-#include "word_list_detection.h"
+#include <math.h>
 
+// STB Image implementation
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -21,217 +20,168 @@ void create_directories() {
     mkdir("data/wordlist", 0755);
     mkdir("data/wordlist/cells", 0755);
     mkdir("data/word_letters", 0755);
-}
-
-// Convert preprocessing output to BinaryImage format
-BinaryImage* convert_to_binary_image(unsigned char* bw_visual,
-		int width,
-		int height) {
-	BinaryImage* binary = binary_image_create(width, height);
-    
-    	// Convert from 0/255 to 0/1 format (invert if needed)
-    	for (int i = 0; i < width * height; i++) {
-        	// In preprocessing: 0=black, 255=white
-        	// In BinaryImage: 0=black, 255=white (same format)
-        	binary->data[i] = bw_visual[i];
-    	}
-    
-    	return binary;
-}
-
-// Rotation functions (from your friend's code)
-void rotate_90(unsigned char* src,
-		unsigned char* dest,
-		int width,
-		int height) {
-    	for (int y = 0; y < height; y++)
-        	for (int x = 0; x < width; x++)
-            		dest[x * height + (height - 1 - y)]
-				= src[y * width + x];
-}
-
-void rotate_180(unsigned char* src,
-		unsigned char* dest,
-		int width, int height) {
-    	for (int y = 0; y < height; y++)
-        	for (int x = 0; x < width; x++)
-            		dest[(height - 1 - y) * width + (width - 1 - x)]
-				= src[y * width + x];
-}
-
-void rotate_270(unsigned char* src,
-		unsigned char* dest,
-		int width, int height) {
-    	for (int y = 0; y < height; y++)
-        	for (int x = 0; x < width; x++)
-            	dest[(width - 1 - x) * height + y]
-			= src[y * width + x];
+    mkdir("data/debug", 0755);
+    mkdir("data/rotation_test", 0755);
 }
 
 int main(int argc, char *argv[]) {
-    	if (argc < 2) {
-		printf("ERROR: not enough arguments\n");
-        	printf("Usage: %s <input_image>\n", argv[0]);
-        	printf("Example: %s data/input/wordsearch.jpg\n", argv[0]);
-        	return 1;
-    	}	
+    if (argc < 2) {
+        printf("ERROR: not enough arguments\n");
+        printf("Usage: %s <input_image>\n", argv[0]);
+        printf("Example: %s wordsearch.jpg\n", argv[0]);
+        return 1;
+    }	
 
-	printf("Word Search Solver - Starting...\n");
+    printf("Word Search Solver - Complete Rotation Detection\n");
+    printf("================================================\n");
 
-    	// Create output directories
-    	create_directories();
+    // Create output directories
+    create_directories();
     
-    	// Step 1: Load and preprocess image
-	char input_file[256];
-	snprintf(input_file, sizeof(input_file), "data/input/%s", argv[1]);
-	
-    	printf("Loading image: %s\n", input_file);
+    // Step 1: Load image
+    char input_file[256];
+    snprintf(input_file, sizeof(input_file), "data/input/%s", argv[1]);
     
-    	int width, height, channels;
-    	unsigned char* img = stbi_load(input_file,
-			&width, &height, &channels, 0);
-    	if (!img) {
-        	printf("Error: Could not load image %s\n", input_file);
-        	return 1;
-    	}
+    printf("\nStep 1: Loading image\n");
+    printf("-------------------\n");
+    printf("Loading: %s\n", input_file);
     
-    	printf("Image loaded: %dx%d (%d channels)\n", width, height, channels);
+    int width, height, channels;
+    unsigned char* img = stbi_load(input_file, &width, &height, &channels, 0);
+    if (!img) {
+        printf("Error: Could not load image %s\n", input_file);
+        printf("Make sure:\n");
+        printf("  1. The file exists in data/input/ directory\n");
+        printf("  2. You have read permissions\n");
+        printf("  3. It's a supported image format (PNG, JPG, BMP)\n");
+        return 1;
+    }
     
-    	unsigned char* gray = NULL;
-    	unsigned char* bw_logic = NULL;
-    	unsigned char* bw_visual = NULL;
-    	unsigned char* rotation_buffer = NULL;
-    	BinaryImage* binary_img = NULL;
-    	GridCells grid = {0, 0, 0, NULL};
-    	int angle = 0;
-	WordList word_list = {0, NULL, NULL, {0,0,0,0}};
-    	int new_width = width, new_height = height;
-	
-	// Preprocessing
-    	gray = (unsigned char*)malloc(width * height);
-	bw_logic = (unsigned char*)malloc(width * height);
-    	bw_visual = (unsigned char*)malloc(width * height);
+    printf("Success: %dx%d pixels, %d channels\n", width, height, channels);
     
-    	if (!gray || !bw_logic || !bw_visual) {
-        	printf("Error: Memory allocation failed\n");
-        	goto cleanup;
-    	}
+    // Allocate memory for processing
+    unsigned char* bw_visual = NULL;
+    unsigned char* rotation_buffer = NULL;
     
-    	// Convert to grayscale and binarize
-    	rgb_to_gray(img, gray, width, height, channels);
-    	binarize(gray, bw_logic, width, height);
+    bw_visual = (unsigned char*)malloc(width * height);
     
-    	// Convert 0/1 → 0/255 for visualization
-    	for (int i = 0; i < width * height; i++) {
-        	bw_visual[i] = bw_logic[i] ? 0 : 255;
-    	}
+    if (!bw_visual) {
+        printf("Error: Memory allocation failed\n");
+        goto cleanup;
+    }
+   
+    // Step 2: Preprocess image (simple noise removal only)
+	printf("\nStep 2: Simple Noise Removal\n");
+	printf("----------------------------\n");
+
+	printf("Applying minimal noise removal (preserves all text)...\n");
+	preprocess_ocr(img, bw_visual, width, height, channels);
+
+	// Save the cleaned image
+	stbi_write_png("data/images/01_cleaned.png",
+        	width, height, 1, bw_visual, width);
+	printf("Saved cleaned image: data/images/01_cleaned.png\n");
     
-    	// Save binarized image
-    	stbi_write_png("data/images/level_1_binarized.png",
-			width, height, 1, bw_visual, width);
-    	printf("Saved binarized image as data/images/level_1_binarized.png\n");
+    // ========== COMPLETE ROTATION DETECTION & CORRECTION ==========
+    printf("\nStep 3: Rotation Detection & Correction\n");
+    printf("----------------------------------------\n");
     
-    	// Step 2: Optional rotation
-    	printf("Enter rotation angle (0, 90, 180, 270): ");
-    	if (scanf("%d", &angle) != 1) {
-    		printf("Invalid input. Using 0 (no rotation).\n");
-    		angle = 0;}
+    // Save visual test images for debugging
+    printf("Saving test images for rotation analysis...\n");
+    mkdir("data/rotation_test", 0755);
     
-    	unsigned char* rotated = bw_visual;
+    unsigned char* test_buffer = malloc(width * height);
+    if (test_buffer) {
+        // Test a few angles
+        double test_angles[] = {-15.0, 0.0, 15.0};
+        for (int i = 0; i < 3; i++) {
+            double angle = test_angles[i];
+            rotate_image(bw_visual, test_buffer, width, height, angle);
+            
+            char filename[256];
+            snprintf(filename, sizeof(filename), 
+                     "data/rotation_test/test_%+06.1fdeg.png", angle);
+            
+            stbi_write_png(filename, width, height, 1, test_buffer, width);
+        }
+        free(test_buffer);
+        printf("Saved test images to data/rotation_test/\n");
+    }
     
-    	if (angle != 0) {
-        	rotation_buffer = malloc(width * height);
-		if (!rotation_buffer) {
-            		printf("Error: Malloc for rotation failed\n");
-            		goto cleanup;
-        	}
-        	switch(angle) {
-            		case 90:
-                		rotate_90(bw_visual, rotation_buffer,
-						width, height);
-                		new_width = height; 
-                		new_height = width;
-                		rotated = rotation_buffer;
-                		break;
-            		case 180:
-                		rotate_180(bw_visual, rotation_buffer,
-						width, height);
-                		rotated = rotation_buffer;
-                		break;
-            		case 270:
-                		rotate_270(bw_visual, rotation_buffer,
-						width, height);
-                		new_width = height; 
-                		new_height = width;
-                		rotated = rotation_buffer;
-                		break;
-            		default:
-                		printf("⚠️Invalid angle. Skipping rotation.\n");
-                		break;
-        	}
+    // Find the optimal rotation angle
+    printf("\nDetecting optimal rotation angle...\n");
+    double detected_rotation = find_best_angle(bw_visual, width, height);
+    
+    printf("\n=== CORRECTION DECISION ===\n");
+    printf("Detected text orientation: %.2f°\n", detected_rotation);
+    printf("(Positive = counter-clockwise, Negative = clockwise)\n");
+    
+    // Calculate correction angle
+    double correction_angle = -detected_rotation;
+    
+    // Conservative rotation application
+    if (fabs(correction_angle) < 0.5) {
+        printf("\n✓ Image is already properly oriented (tilt < 0.5°)\n");
+        printf("  Skipping rotation to avoid unnecessary processing artifacts\n");
+        rotation_buffer = bw_visual;
+        printf("  Using cleaned image for further processing\n");
+    } 
+    else if (fabs(correction_angle) < 2.0) {
+        printf("\n⚠ Minor tilt detected (%.2f°)\n", correction_angle);
+        printf("  Rotation is optional. Using cleaned image.\n");
+        rotation_buffer = bw_visual;
+    } 
+    else {
+        printf("\n✗ Significant rotation needed: %.2f°\n", correction_angle);
+        printf("  Applying rotation correction...\n");
         
-        	if (rotation_buffer) {
-            		stbi_write_png("data/images/rotated.png",
-					new_width, new_height, 1,
-					rotated, new_width);
-            		printf("Rotated image in data/images/rotated.png\n");
-        	}
-    	}
+        // Allocate buffer for rotated image
+        rotation_buffer = malloc(width * height);
+        if (!rotation_buffer) {
+            printf("Error: Could not allocate rotation buffer\n");
+            goto cleanup;
+        }
+        
+        // Clear the buffer first (white background)
+        memset(rotation_buffer, 255, width * height);
+        
+        // Apply the rotation correction
+        printf("  Rotating image by %.2f degrees...\n", correction_angle);
+        rotate_image(bw_visual, rotation_buffer, width, height, correction_angle);
+        
+        // Save the corrected image
+        char corrected_filename[256];
+        snprintf(corrected_filename, sizeof(corrected_filename),
+                 "data/images/02_corrected_%+.1fdeg.png", correction_angle);
+        stbi_write_png(corrected_filename, width, height, 1, rotation_buffer, width);
+        printf("  ✓ Saved corrected image: %s\n", corrected_filename);
+    }
     
-    	// Step 3: Convert to BinaryImage format for detection
-    	printf("Converting to BinaryImage format...\n");
-   	binary_img = convert_to_binary_image(rotated, new_width, new_height);
+    // Note: The rest of your code (grid detection, word list, etc.) goes here
+    // You'll need to convert the rotation_buffer to BinaryImage format
+    // and continue with your pipeline
     
-    	// Step 4: Grid detection
-    	printf("Detecting grid...\n");
-    	grid = detect_grid_from_image(binary_img);
-    	printf("Grid detected: %d x %d (%d cells)\n",
-			grid.rows, grid.cols, grid.count);
+    printf("\nPreprocessing complete! Ready for grid detection.\n");
     
-    	// Save grid visualization
-    	visualize_grid_detection(binary_img, grid,
-			"data/images/grid_detection.png");
-    	printf("Grid visualization saved as data/images/grid_detection.png\n");
-    
-    	// Save grid cells
-    	int saved_cells = save_all_cells_binary(binary_img, grid,
-			"data/grid/cells");
-    	printf("Saved %d grid cells to data/grid/cells/\n", saved_cells);
-    
-    	// Step 5: Word list detection
-    	printf("Detecting word list...\n");
-    	word_list = find_word_list(binary_img, grid);
-    	printf("Word list detected: %d words\n", word_list.count);
-    
-    	// Save word list visualization
-    	visualize_word_list(binary_img, word_list,
-			"data/images/word_list_detection.png");
-    
-    	// Save word list cells
-    	save_word_list_cells(binary_img, word_list, "data");
-    
-    	// Step 6: Extract letters from words
-   	save_word_letters(binary_img, word_list, "data");
-    
-    	// Free allocated memory from detection
-    	word_list_free(&word_list);
-    
-    	printf("Program completed successfully.\n");
-
 cleanup:
-    	// Cleanup
-    	if (gray) free(gray);
-    	if (bw_logic) free(bw_logic);
-    	if (bw_visual) free(bw_visual);
-    	if (rotation_buffer) free(rotation_buffer);
-	
-	if (binary_img) binary_image_free(binary_img);
-
-   	if (grid.rects) grid_cells_free(&grid);
-    	if (word_list.words) word_list_free(&word_list);
-	
+    // Cleanup
+    printf("\nCleaning up resources...\n");
     
-    	if (img) stbi_image_free(img);
+    if (bw_visual && bw_visual != rotation_buffer) {
+        free(bw_visual);
+        printf("  Freed cleaned image buffer\n");
+    }
+    
+    if (rotation_buffer && rotation_buffer != bw_visual) {
+        free(rotation_buffer);
+        printf("  Freed rotation buffer\n");
+    }
+    
+    if (img) {
+        stbi_image_free(img);
+        printf("  Freed original image\n");
+    }
 
-    	return 0;
+    printf("\nProgram finished.\n");
+    return 0;
 }
