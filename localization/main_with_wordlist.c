@@ -4,7 +4,7 @@
 #include "../src/nn.h"
 #include "../src/ocr_prod.h"
 #include "../solver/solver1.h"
-#include "../output/ou"
+#include "../output/output.h"
 
 void save_debug_image(gdImagePtr img, char* filename,
 		BoundingBox grid, BoundingBox wordlist) {

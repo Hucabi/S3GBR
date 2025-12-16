@@ -1,10 +1,13 @@
 ﻿CC := gcc
 CFLAGS := -O2 -Wall -Wextra -std=c11
 LDFLAGS := -lm
-LDLIBS := -lgd -lm
+CFLAGSUI = -Wall -Wextra $(shell pkg-config --cflags gtk+-3.0)
+LDFLAGSUI = $(shell pkg-config --libs gtk+-3.0)
+LDLIBS := -lgd -lm -lpng
 SOLVER_BIN := wordsearch_solver
 TRAIN_BIN := ocr_nn
 PRETREATMENT_BIN := pretreatment
+UI_BIN := launch_UI
 OCR_COMMON_SRCS := \
 	src/nn.c \
 	src/nn_io.c \
@@ -12,7 +15,7 @@ OCR_COMMON_SRCS := \
 	src/image_loader.c \
 	src/image_utils.c \
 	src/stb_impl.c \
-	solver/solver1.c
+	solver/solver1.c 
 OCR_COMMON_OBJS := $(OCR_COMMON_SRCS:.c=.o)
 OCR_PRETREATMENT_SRCS := \
 	src/image_loader.c \
@@ -32,23 +35,30 @@ LOC_SRCS := \
 	localization/grid_detection.c \
 	localization/letter_extraction.c \
 	localization/wordlist_detection.c \
-	localization/wordlist_extraction.c
+	localization/wordlist_extraction.c \
+	output/output.c
 LOC_OBJS := $(LOC_SRCS:.c=.o)
 MAIN_SRC := localization/main_with_wordlist.c
 MAIN_OBJ := $(MAIN_SRC:.c=.o)
 PMAIN_SRC := src/main.c
 PMAIN_OBJ := $(PMAIN_SRC:.c=.o)
-all: $(SOLVER_BIN) $(TRAIN_BIN) $(PRETREATMENT_BIN)
+UIMAIN_SRC := ui/ui.c
+UIMAIN_OBJ := $(UIMAIN_SRC:.c=.o)
+all: $(SOLVER_BIN) $(TRAIN_BIN) $(PRETREATMENT_BIN) $(UI_BIN)
 $(SOLVER_BIN): $(MAIN_OBJ) $(LOC_OBJS) $(OCR_COMMON_OBJS) $(OCR_PROD_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
 $(TRAIN_BIN): $(OCR_COMMON_OBJS) $(OCR_TRAIN_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 $(PRETREATMENT_BIN): $(PMAIN_OBJ) $(OCR_PRETREATMENT_OBJS)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
+ui/ui.o: ui/ui.c
+	$(CC) $(CFLAGS) $(CFLAGSUI) -c $< -o $@
+$(UI_BIN): $(UIMAIN_OBJ)
+	$(CC) $(CFLAGSUI) $^ -o $@ $(LDFLAGSUI)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 clean:
-	rm -f *.o $(SOLVER_BIN) $(TRAIN_BIN) $(PRETREATMENT_BIN)
+	rm -f *.o $(SOLVER_BIN) $(TRAIN_BIN) $(PRETREATMENT_BIN) $(UI_BIN)
 	rm -f grid.txt words.txt
 	rm -rf data/grid/cells/*
 	rm -rf data/wordlist/cells/*
@@ -60,4 +70,5 @@ clean:
 	rm -rf src/data/debug/*
 	rm -rf src/data/images/*
 	rm -rf src/data/rotation_test/*
+	rm -f output.png
 .PHONY: all clean
