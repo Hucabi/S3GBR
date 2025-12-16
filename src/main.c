@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
         snprintf(corrected_filename, sizeof(corrected_filename),
                  "data/images/treated_image.png");
         stbi_write_png(corrected_filename, width, height, 1, rotation_buffer, width);
-        printf("  ✓ Saved corrected image: %s\n", corrected_filename);
+        printf("  Saved corrected image: %s\n", corrected_filename);
     }
     
     // Note: The rest of your code (grid detection, word list, etc.) goes here
