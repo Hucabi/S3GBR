@@ -1,6 +1,6 @@
 #include <gtk/gtk.h>
-// #include "image_rotate.h"
-// #include "ocr_solver.h"
+#include <stdlib.h>
+
 
 /* Paths to images */
 #define INPUT_IMAGE   "data/images/input.png"
@@ -17,8 +17,9 @@ void on_rotate_clicked(GtkButton *button, gpointer user_data)
     (void)button;
     (void)user_data;
 
-    /* Call your rotation function */
-    rotate_image(INPUT_IMAGE, ROTATED_IMAGE);
+    // call automatic rotation
+    int e = system("./pretreatment level_2_image_2.png");
+    if(e != 0){ printf("rotate syst error"); return;}
 
     /* Update displayed image */
     gtk_image_set_from_file(GTK_IMAGE(image_widget), ROTATED_IMAGE);
@@ -29,8 +30,9 @@ void on_solve_clicked(GtkButton *button, gpointer user_data)
     (void)button;
     (void)user_data;
 
-    /* Call your OCR + solver */
-    run_ocr_and_solve(ROTATED_IMAGE, SOLVED_IMAGE);
+    // run OCR and solver
+    int e = system("./wordsearch_solver data/images/treated_image.png");
+    if(e != 0){ printf("solver syst error"); return;}
 
     /* Display solved grid */
     gtk_image_set_from_file(GTK_IMAGE(image_widget), SOLVED_IMAGE);
