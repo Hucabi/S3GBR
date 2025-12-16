@@ -130,7 +130,7 @@ void write_png(const char *filename,unsigned char *image,int width,int height){
 }
 
 
-int main(void){
+int runOutput(void){
     load_grid("grid.txt");
     load_words("coords.txt");
 

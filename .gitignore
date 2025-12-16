@@ -53,5 +53,6 @@ dkms.conf
 
 # debug information files
 *.dwo
-# noe vs code
-.vs\
+
+# Noe vscode
+.vs/
