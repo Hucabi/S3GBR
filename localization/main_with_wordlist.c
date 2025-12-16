@@ -4,6 +4,7 @@
 #include "../src/nn.h"
 #include "../src/ocr_prod.h"
 #include "../solver/solver1.h"
+#include "../output/ou"
 
 void save_debug_image(gdImagePtr img, char* filename,
 		BoundingBox grid, BoundingBox wordlist) {
@@ -116,7 +117,12 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    //printf("STEP 7 = OUTPUT\n");
+    printf("STEP 7 = OUTPUT\n");
+    if(runOutput() != 0)
+    {
+        printf("Error: Output failed\n");
+        return 1;
+    }
 
     return 0;
 }
